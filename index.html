@@ -80,20 +80,32 @@
   </style>
   <style>
     @media print {
+      body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
       body * {
-        visibility: hidden;
+        visibility: hidden !important;
       }
-      #printableReceipt, #printableReceipt * {
-        visibility: visible;
+      #standaloneReceiptCard, #standaloneReceiptCard * {
+        visibility: visible !important;
       }
-      #printableReceipt {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 20px;
-        box-shadow: none;
+      #standaloneReceiptCard {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-shadow: none !important;
+        border: 2px solid #d97706 !important;
+        margin: 0 !important;
+        padding: 24px !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
       }
     }
   </style>
@@ -101,7 +113,7 @@
 <body class="bg-royal-pattern text-slate-900 min-h-full flex flex-col font-sans antialiased selection:bg-bhagwa-600 selection:text-white">
 
   <!-- TOP HEADER -->
-  <header class="bg-gradient-to-r from-bhagwa-900 via-bhagwa-700 to-amber-700 text-white shadow-xl sticky top-0 z-40 border-b-2 border-amber-400">
+  <header id="appMainHeader" class="bg-gradient-to-r from-bhagwa-900 via-bhagwa-700 to-amber-700 text-white shadow-xl sticky top-0 z-40 border-b-2 border-amber-400">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <div class="w-11 h-11 bg-gradient-to-br from-amber-400 to-orange-500 p-0.5 rounded-2xl shadow-md flex items-center justify-center">
@@ -159,7 +171,7 @@
   </header>
 
   <!-- LIVE SUMMARY CARDS -->
-  <section class="max-w-6xl mx-auto px-4 mt-5 w-full">
+  <section id="appLiveSummarySection" class="max-w-6xl mx-auto px-4 mt-5 w-full">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-orange-100 text-bhagwa-600 flex items-center justify-center font-bold">
@@ -201,7 +213,7 @@
   </section>
 
   <!-- MAIN CONTENT TABS CONTAINER -->
-  <main class="max-w-6xl mx-auto px-4 py-5 w-full flex-1">
+  <main id="appMainContainer" class="max-w-6xl mx-auto px-4 py-5 w-full flex-1">
 
     <!-- ======================================================== -->
     <!-- TAB 1: NEW DONATION RECEIPT GENERATOR -->
@@ -1639,19 +1651,206 @@
     </div>
   </div>
 
-      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-        <button onclick="closeConfigModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">रद्द करा</button>
-        <button onclick="saveSupabaseConfig()" class="px-4 py-2 text-xs font-semibold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg">सेव्ह करा</button>
+  <!-- ======================================================== -->
+  <!-- STANDALONE PDF DIGITAL RECEIPT VIEW (DEDICATED DONOR LINK) -->
+  <!-- Shown ONLY when ?receipt=SJ-2027-XXXX is opened from WhatsApp -->
+  <!-- ======================================================== -->
+  <div id="standaloneReceiptView" class="hidden min-h-screen bg-slate-100 flex flex-col items-center py-4 px-2 sm:py-8 sm:px-4">
+    
+    <!-- Top Action Toolbar (Hidden during print) -->
+    <div class="no-print w-full max-w-2xl mb-4 flex flex-wrap items-center justify-between gap-2 bg-white/95 backdrop-blur p-3.5 rounded-2xl shadow-md border border-amber-300">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🚩</span>
+        <div>
+          <h2 class="text-xs sm:text-sm font-extrabold text-bhagwa-900">शिवाजी राजे संघटना</h2>
+          <p class="text-[10px] text-slate-500">अधिकृत देणगी पावती (E-Receipt)</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="downloadOrPrintPdfReceipt()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2 transition transform active:scale-95">
+          <i data-lucide="file-down" class="w-4 h-4"></i>
+          <span>📄 PDF डाउनलोड / प्रिंट</span>
+        </button>
+        <button onclick="exitReceiptViewToApp()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-300 flex items-center gap-1.5 transition">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">मंडळ डॅशबोर्ड</span>
+        </button>
       </div>
     </div>
+
+    <!-- Loading State -->
+    <div id="receiptDocLoading" class="py-16 text-center">
+      <div class="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-sm font-bold text-slate-700">अधिकृत पावती सुरक्षितपणे लोड होत आहे...</p>
+      <p class="text-xs text-slate-400 mt-1">कृपया काही सेकंद प्रतीक्षा करा</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="receiptDocError" class="hidden max-w-md w-full bg-white p-6 rounded-2xl shadow-lg border-2 border-rose-400 text-center my-8">
+      <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-base font-bold text-slate-800">पावती सापडली नाही</h3>
+      <p id="receiptDocErrorText" class="text-xs text-slate-500 mt-1">पावती क्रमांक वैध नाही किंवा सर्व्हरवर उपलब्ध नाही.</p>
+      <button onclick="exitReceiptViewToApp()" class="mt-4 px-4 py-2 bg-bhagwa-600 hover:bg-bhagwa-700 text-white text-xs font-bold rounded-xl shadow">
+        मंडळाच्या मुख्य पृष्ठावर जा
+      </button>
+    </div>
+
+    <!-- ROYAL A4 PRINTABLE RECEIPT CARD -->
+    <div id="standaloneReceiptCard" class="hidden w-full max-w-2xl bg-white rounded-2xl shadow-2xl p-5 sm:p-8 border-4 border-amber-500 relative overflow-hidden text-slate-800">
+      
+      <!-- Decorative Corner Accents -->
+      <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-bhagwa-700 rounded-tl-xl pointer-events-none"></div>
+      <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-bhagwa-700 rounded-tr-xl pointer-events-none"></div>
+      <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-bhagwa-700 rounded-bl-xl pointer-events-none"></div>
+      <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-bhagwa-700 rounded-br-xl pointer-events-none"></div>
+
+      <!-- Watermark Background -->
+      <div class="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none select-none">
+        <span class="text-8xl sm:text-9xl font-black font-royal text-bhagwa-950">🚩</span>
+      </div>
+
+      <!-- Header: Royal Sanskrit Shloka -->
+      <div class="text-center pb-3">
+        <div class="inline-block bg-amber-100/90 text-amber-950 border border-amber-300 font-royal font-bold text-[11px] sm:text-xs px-3.5 py-1 rounded-full shadow-2xs mb-2 tracking-wider">
+          ॥ प्रतिपच्चंद्रलेखेव वर्धिष्णुर्विश्ववंदिता शाहसूनोः शिवस्यैषा मुद्रा भद्राय राजते ॥
+        </div>
+        <h1 id="receiptDocOrgName" class="text-2xl sm:text-3xl font-royal font-black text-bhagwa-900 tracking-wide mt-1">
+          शिवाजी राजे संघटना
+        </h1>
+        <p id="receiptDocSubtitle" class="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">
+          छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)
+        </p>
+        <p class="text-[11px] text-amber-800 font-semibold">
+          ॥ निश्चयाचा महामेरू । बहुत जनांसी आधारू ॥
+        </p>
+        
+        <!-- Official Verified Badge -->
+        <div class="mt-2.5">
+          <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border-2 border-emerald-400 px-4 py-1 rounded-full text-xs font-bold shadow-xs">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+            अधिकृत डिजिटल देणगी पावती (Official Verified E-Receipt)
+          </span>
+        </div>
+      </div>
+
+      <!-- Decorative Divider with Flag -->
+      <div class="relative my-3 flex items-center justify-center">
+        <div class="flex-grow border-t-2 border-amber-400"></div>
+        <span class="px-2 text-base text-bhagwa-600">🚩</span>
+        <div class="flex-grow border-t-2 border-amber-400"></div>
+      </div>
+
+      <!-- Receipt Meta Bar: No & Date -->
+      <div class="flex justify-between items-center bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-3 rounded-xl border border-amber-300 mb-4">
+        <div>
+          <span class="text-[10px] sm:text-xs text-slate-500 font-bold block uppercase tracking-wider">पावती क्र. (Receipt No)</span>
+          <span id="receiptDocNo" class="text-sm sm:text-lg font-mono font-black text-bhagwa-900">SJ-2027-0001</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] sm:text-xs text-slate-500 font-bold block uppercase tracking-wider">दिनांक (Date)</span>
+          <span id="receiptDocDate" class="text-xs sm:text-sm font-bold text-slate-800">25/10/2026</span>
+        </div>
+      </div>
+
+      <!-- Donor Details Box -->
+      <div class="bg-slate-50/80 rounded-xl p-3.5 sm:p-4 border border-slate-200 space-y-2.5 text-xs sm:text-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-2">
+          <span class="text-slate-500 font-bold text-xs">देणगीदाराचे नाव (Donor Full Name):</span>
+          <span id="receiptDocDonorName" class="font-bold text-slate-900 text-sm sm:text-base">राहुल रमेश पाटील</span>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-2">
+          <span class="text-slate-500 font-bold text-xs">पत्ता / सदनिका (Address):</span>
+          <span id="receiptDocAddress" class="font-semibold text-slate-800">A Wing, शिवाजी पार्क (फ्लॅट: 101)</span>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-2">
+          <span class="text-slate-500 font-bold text-xs">पेमेंट प्रकार (Payment Mode):</span>
+          <div class="flex items-center gap-2">
+            <span id="receiptDocMode" class="font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 text-xs">CASH (RECEIVED)</span>
+            <span id="receiptDocUtrRow" class="hidden text-xs text-slate-600">UTR: <strong id="receiptDocUtr" class="font-mono text-slate-900"></strong></span>
+          </div>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <span class="text-slate-500 font-bold text-xs">स्वीकारकर्ता अधिकृत कार्यकर्ता (Receiver):</span>
+          <span id="receiptDocVolunteer" class="font-bold text-slate-800">आकाश शिंदे</span>
+        </div>
+      </div>
+
+      <!-- Grand Amount Banner -->
+      <div class="my-4 bg-gradient-to-r from-bhagwa-600 via-amber-600 to-bhagwa-700 text-white rounded-2xl p-4 sm:p-5 text-center shadow-lg border-2 border-amber-300 relative">
+        <p class="text-[11px] sm:text-xs text-amber-100 font-bold uppercase tracking-widest">
+          प्राप्त वर्गणी देणगी रक्कम (Amount Received)
+        </p>
+        <p id="receiptDocAmount" class="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mt-1 drop-shadow-md">
+          ₹200.00
+        </p>
+        <p class="text-xs sm:text-sm text-amber-100 font-bold mt-1.5">
+          अक्षरी: <span id="receiptDocInWords" class="text-white underline decoration-amber-300 underline-offset-4">दोनशे रुपये फक्त</span>
+        </p>
+      </div>
+
+      <!-- Verification Footer & Seal -->
+      <div class="grid grid-cols-3 gap-3 items-center pt-2 pb-1 border-t-2 border-slate-200">
+        <!-- Verification QR -->
+        <div class="flex flex-col items-center text-center">
+          <div id="receiptDocQrCode" class="p-1 bg-white border border-slate-300 rounded-lg shadow-2xs"></div>
+          <span class="text-[9px] text-slate-500 font-bold mt-1">स्कॅन करून पडताळा</span>
+        </div>
+
+        <!-- Official Seal / Stamp -->
+        <div class="flex items-center justify-center">
+          <div class="w-20 h-20 sm:w-24 sm:h-24 border-2 border-dashed border-bhagwa-700 rounded-full flex flex-col items-center justify-center text-center p-1 text-[8px] sm:text-[9px] text-bhagwa-900 font-black leading-tight transform -rotate-6 shadow-inner bg-orange-50/70">
+            <span class="text-xs sm:text-sm">🚩</span>
+            <span>शिवाजी राजे</span>
+            <span>संघटना</span>
+            <span class="text-[7px] text-amber-700">★ अधिकृत शिक्का ★</span>
+            <span class="text-[7px]">19 Feb उत्सव</span>
+          </div>
+        </div>
+
+        <!-- Signature -->
+        <div class="text-right">
+          <div class="h-10 flex items-end justify-end">
+            <span class="text-[10px] font-royal font-bold text-slate-400 italic">Digitally Verified</span>
+          </div>
+          <p class="text-xs font-black text-slate-800 border-t border-slate-400 pt-1">अधिकृत खजिनदार / अध्यक्ष</p>
+          <p class="text-[10px] text-slate-500 font-medium">शिवाजी राजे संघटना</p>
+        </div>
+      </div>
+
+      <!-- Legal / Audit Note & Slogan -->
+      <div class="text-center pt-3 border-t border-slate-100">
+        <p class="font-royal text-base sm:text-lg font-black text-bhagwa-800 tracking-wide">
+          ॥ जय भवानी । जय शिवाजी ॥
+        </p>
+        <p class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">
+          ही पावती UtsavLedger संगणकीय प्रणालीद्वारे तयार केली असून सर्व सार्वजनिक ऑडिट व पारदर्शकता नियमांचे पालन करते.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Bottom Action Button for Mobile Users (Hidden during print) -->
+    <div class="no-print mt-4 flex items-center justify-center gap-3">
+      <button onclick="downloadOrPrintPdfReceipt()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg flex items-center gap-2 transition">
+        <i data-lucide="printer" class="w-4 h-4"></i>
+        <span>पावती PDF सेव्ह / प्रिंट करा</span>
+      </button>
+      <button onclick="exitReceiptViewToApp()" class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl border border-slate-300 shadow flex items-center gap-1.5 transition">
+        <i data-lucide="home" class="w-3.5 h-3.5"></i>
+        <span>मुख्य डॅशबोर्ड</span>
+      </button>
+    </div>
+
   </div>
 
   <!-- FOOTER -->
-  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+  <footer id="appFooter" class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
     <p>🚩 <strong>शिवाजी राजे संघटना</strong> | उत्सव व्यवस्थापन प्रणाली (UtsavLedger) | Final Year Major Project</p>
   </footer>
 
-  <!-- App Script -->
-  <script src="app.js"></script>
+  <!-- App Script with cache-busting -->
+  <script src="app.js?v=2.3"></script>
 </body>
 </html>

@@ -55,6 +55,11 @@ let supabaseClient = null;
 // Initialize when DOM loads
 document.addEventListener("DOMContentLoaded", async () => {
   lucide.createIcons();
+  
+  // 1. Immediately check if page was opened via WhatsApp Digital Receipt Link (?receipt=SJ-2027-0001)
+  // to avoid seeing the dashboard layout before the receipt loads
+  checkUrlForReceiptVerification();
+
   const sbConnected = initSupabaseFromStorage(); // Try Supabase first
   loadStoredData();
   loadVolunteers();
@@ -72,9 +77,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadFromSupabase();
     subscribeToSupabaseChanges();
   }
-
-  // Check if page was opened via WhatsApp Digital Receipt Link (?receipt=SJ-2027-0001)
-  checkUrlForReceiptVerification();
 
   // Auto-regenerate UPI QR when user changes donation amount
   const amountInput = document.getElementById("donationAmount");
@@ -213,58 +215,28 @@ function loadStoredData() {
   const storedExpenses = localStorage.getItem("utsav_expenses");
 
   if (storedCollections !== null) {
-    collections = JSON.parse(storedCollections);
+    try {
+      collections = JSON.parse(storedCollections);
+      if (!Array.isArray(collections)) collections = [];
+      // Clean out the old dummy demo entries so they don't corrupt real collections
+      collections = collections.filter(c => c.id !== "col-1" && c.id !== "col-2" && c.donorName !== "संजय देशमुख");
+    } catch (e) {
+      collections = [];
+    }
   } else {
-    // Initial Seed Data for immediate testing on first load only
-    collections = [
-      {
-        id: "col-1",
-        receiptNo: "SJ-2027-0001",
-        donorName: "आनंदराव गायकवाड",
-        phone: "9822012345",
-        society: "शिवाजी पार्क",
-        wing: "A Wing",
-        flat: "101",
-        amount: 1100,
-        mode: "CASH",
-        status: "RECEIVED",
-        volunteer: "स्वयंसेवक 1",
-        date: "2026-10-24"
-      },
-      {
-        id: "col-2",
-        receiptNo: "SJ-2027-0002",
-        donorName: "संजय देशमुख",
-        phone: "9823054321",
-        society: "शिवाजी पार्क",
-        wing: "B Wing",
-        flat: "204",
-        amount: 2100,
-        mode: "UPI",
-        status: "RECEIVED",
-        volunteer: "स्वयंसेवक 2",
-        date: "2026-10-25"
-      }
-    ];
-    saveCollections();
+    collections = [];
   }
 
   if (storedExpenses !== null) {
-    expenses = JSON.parse(storedExpenses);
+    try {
+      expenses = JSON.parse(storedExpenses);
+      if (!Array.isArray(expenses)) expenses = [];
+      expenses = expenses.filter(e => e.id !== "exp-1" && e.id !== "exp-2");
+    } catch (e) {
+      expenses = [];
+    }
   } else {
-    // Initial Seed Expenses
-    expenses = [
-      {
-        id: "exp-1",
-        category: "Police & Govt Permissions",
-        vendor: "नगरपालिका & पोलीस स्टेशन",
-        amount: 1500,
-        date: "2026-10-20",
-        billUrl: "",
-        desc: "मंडप व ध्वनीक्षेपक शासकीय रीतसर परवानगी शुल्क"
-      }
-    ];
-    saveExpenses();
+    expenses = [];
   }
 }
 
@@ -316,9 +288,20 @@ function switchTab(tabName) {
 // 3. DONATION SUBMIT & RECEIPT GENERATOR
 // -----------------------------------------------------------------------------
 function updateNextReceiptNumber() {
-  const nextNum = collections.length + 1;
+  let maxNum = 0;
+  collections.forEach(c => {
+    if (c.receiptNo) {
+      const match = c.receiptNo.match(/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  });
+  const nextNum = maxNum + 1;
   currentReceiptNumber = `SJ-2027-${String(nextNum).padStart(4, "0")}`;
-  document.getElementById("autoReceiptNo").innerText = `Receipt: ${currentReceiptNumber}`;
+  const el = document.getElementById("autoReceiptNo");
+  if (el) el.innerText = `Receipt: ${currentReceiptNumber}`;
 }
 
 function setPaymentMode(mode) {
@@ -711,8 +694,16 @@ function copyOnlyReceiptLink() {
 }
 
 function shareWhatsApp() {
-  if (collections.length > 0) {
-    sendWhatsAppReceipt(collections[0]);
+  const currentReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
+  let item = null;
+  if (currentReceiptNo) {
+    item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === currentReceiptNo.toUpperCase());
+  }
+  if (!item && collections.length > 0) {
+    item = collections[0];
+  }
+  if (item) {
+    sendWhatsAppReceipt(item);
   } else {
     alert("⚠️ अद्याप कोणतीही पावती तयार झालेली नाही!");
   }
@@ -736,7 +727,7 @@ function formatWhatsAppReceipt(item) {
 
   // Ensure no trailing slash
   baseUrl = baseUrl.replace(/\/+$/, "");
-  const directReceiptLink = `${baseUrl}?receipt=${item.receiptNo}`;
+  const directReceiptLink = `${baseUrl}?receipt=${encodeURIComponent(item.receiptNo)}&amount=${item.amount}`;
 
   return `🚩 *जय भवानी | जय शिवाजी* 🚩
 =============================
@@ -749,18 +740,18 @@ function formatWhatsAppReceipt(item) {
 
 📄 *पावती क्र:* ${item.receiptNo}
 📅 *तारीख:* ${item.date}
-🏠 *पत्ता:* ${item.wing}, ${item.society} (फ्लॅट: ${item.flat})
-💰 *रक्कम:* ₹${item.amount.toLocaleString("en-IN")}/-
-💳 *मोड:* ${item.mode} (${item.status})${item.transactionRef ? `\n🔢 *बँक UTR क्र:* ${item.transactionRef}` : ''}
-👤 *कार्यकर्ता:* ${item.volunteer}
+🏠 *पत्ता:* ${item.wing || ''}, ${item.society || ''} ${item.flat ? '(फ्लॅट: ' + item.flat + ')' : ''}
+💰 *रक्कम:* ₹${parseFloat(item.amount).toLocaleString("en-IN")}/-
+💳 *मोड:* ${item.mode} (${item.status || 'RECEIVED'})${item.transactionRef ? `\n🔢 *बँक UTR क्र:* ${item.transactionRef}` : ''}
+👤 *कार्यकर्ता:* ${item.volunteer || 'अधिकृत कमिटी'}
 
-🔗 *डिजिटल पावती पाहण्यासाठी खालील लिंकवर क्लिक करा:*
+🔗 *अधिकृत डिजिटल पावती (PDF) पाहण्यासाठी खालील लिंकवर क्लिक करा:*
 
 ${directReceiptLink}
 
-(टीप: वरील लिंकवर क्लिक करून आपण आपली अधिकृत पावती PDF मध्ये डाउनलोड किंवा प्रिंट करू शकता)
+(टीप: वरील लिंकवर क्लिक करून आपण आपली पावती PDF स्वरूपात सेव्ह करू शकता किंवा प्रिंट करू शकता)
 
-आपल्या सहकार्याबद्दल धन्यवाद! 🙏
+आपल्या सहकार्याबद्दल मनःपूर्वक धन्यवाद! 🙏
 || जय भवानी | जय शिवाजी ||`;
 }
 
@@ -794,55 +785,284 @@ function resendWhatsApp(id) {
 // -----------------------------------------------------------------------------
 // 5. PUBLIC DIGITAL RECEIPT DIRECT LINK VERIFICATION
 // -----------------------------------------------------------------------------
+// 5. STANDALONE DIGITAL RECEIPT VIEW (WHATSAPP DONOR LINK)
+// When ?receipt=SJ-2027-XXXX is opened:
+// Hides all management screens & displays only the clean official printable receipt
+// -----------------------------------------------------------------------------
+
+function formatMarathiCurrencyWords(num) {
+  if (!num || isNaN(num) || num <= 0) return "शून्य रुपये फक्त";
+  num = Math.floor(num);
+
+  const units = [
+    "", "एक", "दोन", "तीन", "चार", "पाच", "सहा", "सात", "आठ", "नऊ", "दहा",
+    "अकरा", "बारा", "तेरा", "चौदा", "पंधरा", "सोळा", "सतरा", "अठरा", "एकोणीस", "वीस",
+    "एकवीस", "बावीस", "तेवीस", "चोवीस", "पंचवीस", "सव्वीस", "सत्तावीस", "अठ्ठावीस", "एकोणतीस", "तीस",
+    "एकतीस", "बत्तीस", "तेहेतीस", "चौतीस", "पस्तीस", "छत्तीस", "सदतीस", "अडतीस", "एकेचाळीस", "चाळीस",
+    "एक्केचाळीस", "बेचाळीस", "त्रेचाळीस", "चव्वेचाळीस", "पंचेचाळीस", "शेचाळीस", "सत्तेचाळीस", "अठ्ठेचाळीस", "एकोणपन्नास", "पन्नास",
+    "एक्कावन्न", "बावन्न", "त्रेपन्न", "चोपन्न", "पंचावन्न", "छप्पन्न", "सत्तावन्न", "अठ्ठावन्न", "एकोणसाठ", "साठ",
+    "एकसष्ठ", "बासष्ठ", "त्रेसष्ठ", "चौसष्ठ", "पासष्ठ", "सहासष्ठ", "सदुसष्ठ", "अडुसष्ठ", "एकोणसत्तर", "सत्तर",
+    "एकाहत्तर", "बाहत्तर", "त्र्याहत्तर", "चौऱ्याहत्तर", "पंच्याहत्तर", "शहात्तर", "सत्त्याहत्तर", "अठ्ठ्याहत्तर", "एकोणऐंशी", "ऐंशी",
+    "एक्याऐंशी", "ब्याऐंशी", "त्र्याऐंशी", "चौऱ्याऐंशी", "पंच्याऐंशी", "शहाऐंशी", "सत्त्याऐंशी", "अठ्ठ्याऐंशी", "एकोणनव्वद", "नव्वद",
+    "एक्याण्णव", "ब्याण्णव", "त्र्याण्णव", "चौऱ्याण्णव", "पंच्याण्णव", "शहाण्णव", "सत्त्याण्णव", "अठ्ठाण्णव", "नव्व्याण्णव"
+  ];
+
+  const hundreds = ["", "एकशे", "दोनशे", "तीनशे", "चारशे", "पाचशे", "सहाशे", "सातशे", "आठशे", "नऊशे"];
+
+  let words = [];
+
+  // Crores (कोटी)
+  if (num >= 10000000) {
+    const cr = Math.floor(num / 10000000);
+    words.push((units[cr] || cr) + " कोटी");
+    num %= 10000000;
+  }
+  // Lakhs (लाख)
+  if (num >= 100000) {
+    const lk = Math.floor(num / 100000);
+    words.push((units[lk] || lk) + " लाख");
+    num %= 100000;
+  }
+  // Thousands (हजार)
+  if (num >= 1000) {
+    const th = Math.floor(num / 1000);
+    words.push((units[th] || th) + " हजार");
+    num %= 1000;
+  }
+  // Hundreds (शे)
+  if (num >= 100) {
+    const h = Math.floor(num / 100);
+    if (h === 1) words.push("एकशे");
+    else words.push(hundreds[h] || (units[h] + " शे"));
+    num %= 100;
+  }
+  // Remaining (1-99)
+  if (num > 0) {
+    words.push(units[num] || num);
+  }
+
+  return words.join(" ") + " रुपये फक्त";
+}
+
 function checkUrlForReceiptVerification() {
   try {
     const params = new URLSearchParams(window.location.search);
     const receiptQuery = params.get("receipt") || params.get("no");
-    if (receiptQuery) {
-      showPublicReceiptModal(receiptQuery);
+    if (receiptQuery && receiptQuery.trim() !== "") {
+      enterStandaloneReceiptMode(receiptQuery.trim());
     }
   } catch (err) {
     console.error("URL check error:", err);
   }
 }
 
-function showPublicReceiptModal(receiptNo) {
-  const item = collections.find(c => c.receiptNo.toUpperCase() === receiptNo.trim().toUpperCase());
-  const modal = document.getElementById("publicReceiptModal");
-  if (!modal) return;
+async function enterStandaloneReceiptMode(receiptNo) {
+  // 1. Immediately hide main web app components
+  const header = document.getElementById("appMainHeader");
+  const summary = document.getElementById("appLiveSummarySection");
+  const main = document.getElementById("appMainContainer");
+  const footer = document.getElementById("appFooter");
+  const pubModal = document.getElementById("publicReceiptModal");
 
-  const orgName = localStorage.getItem("utsav_org_name") || "शिवाजी राजे संघटना";
-  const eventSubtitle = localStorage.getItem("utsav_event_subtitle") || "छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)";
+  if (header) header.classList.add("hidden");
+  if (summary) summary.classList.add("hidden");
+  if (main) main.classList.add("hidden");
+  if (footer) footer.classList.add("hidden");
+  if (pubModal) pubModal.classList.add("hidden");
 
-  document.getElementById("pubVerifyOrgName").innerText = orgName;
-  document.getElementById("pubVerifySubtitle").innerText = eventSubtitle;
+  // 2. Display the standalone receipt container
+  const view = document.getElementById("standaloneReceiptView");
+  const loading = document.getElementById("receiptDocLoading");
+  const errorBox = document.getElementById("receiptDocError");
+  const card = document.getElementById("standaloneReceiptCard");
 
-  if (item) {
-    document.getElementById("pubVerifyReceiptNo").innerText = item.receiptNo;
-    document.getElementById("pubVerifyDate").innerText = item.date;
-    document.getElementById("pubVerifyDonorName").innerText = item.donorName;
-    document.getElementById("pubVerifyAddress").innerText = `${item.wing}, ${item.society} (फ्लॅट: ${item.flat})`;
-    document.getElementById("pubVerifyPaymentMode").innerText = `${item.mode} (${item.status})`;
-    document.getElementById("pubVerifyVolunteer").innerText = item.volunteer;
-    document.getElementById("pubVerifyAmount").innerText = `₹${item.amount.toLocaleString("en-IN")}.00`;
-  } else {
-    // If opened on another device without backend sync yet
-    document.getElementById("pubVerifyReceiptNo").innerText = receiptNo;
-    document.getElementById("pubVerifyDate").innerText = "2026-10-25";
-    document.getElementById("pubVerifyDonorName").innerText = "सत्यापित देणगीदार";
-    document.getElementById("pubVerifyAddress").innerText = "शिवाजी पार्क सोसायटी";
-    document.getElementById("pubVerifyPaymentMode").innerText = "सत्यापित (Verified)";
-    document.getElementById("pubVerifyVolunteer").innerText = "अधिकृत कमिटी";
-    document.getElementById("pubVerifyAmount").innerText = "✓ Valid";
+  if (!view) return;
+  view.classList.remove("hidden");
+  if (loading) loading.classList.remove("hidden");
+  if (errorBox) errorBox.classList.add("hidden");
+  if (card) card.classList.add("hidden");
+
+  // 3. Search for the receipt record in memory
+  const cleanReceiptNo = receiptNo.trim().toUpperCase();
+  let item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === cleanReceiptNo);
+
+  // If not found in local collections (e.g. mobile donor opened link on fresh browser),
+  // fetch directly from Supabase Cloud
+  if (!item && supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("collections_simple")
+        .select("*")
+        .ilike("receipt_no", cleanReceiptNo)
+        .maybeSingle();
+
+      if (data && !error) {
+        item = {
+          id: data.id,
+          receiptNo: data.receipt_no,
+          donorName: data.donor_name,
+          phone: data.phone,
+          society: data.society,
+          wing: data.wing,
+          flat: data.flat,
+          amount: parseFloat(data.amount),
+          mode: data.payment_mode,
+          status: data.payment_status,
+          volunteer: data.volunteer_name,
+          transactionRef: data.utr_number || "",
+          utr: data.utr_number || "",
+          date: data.collected_date
+        };
+        collections.unshift(item);
+      }
+    } catch (e) {
+      console.warn("Supabase single receipt fetch warning:", e);
+    }
   }
 
-  modal.classList.remove("hidden");
+  // 4. Render Receipt or Error
+  if (loading) loading.classList.add("hidden");
+
+  if (item) {
+    populateStandaloneReceiptCard(item);
+    if (card) card.classList.remove("hidden");
+  } else {
+    // Check if URL has fallback parameters
+    const params = new URLSearchParams(window.location.search);
+    const fallbackAmt = params.get("amount") || params.get("amt");
+    const fallbackName = params.get("name") || params.get("donor");
+    if (fallbackAmt) {
+      const fallbackItem = {
+        receiptNo: cleanReceiptNo,
+        donorName: fallbackName || "सत्यापित देणगीदार",
+        society: "शिवाजी पार्क",
+        wing: "",
+        flat: "",
+        amount: parseFloat(fallbackAmt),
+        mode: "VERIFIED",
+        status: "RECEIVED",
+        volunteer: "अधिकृत कमिटी",
+        transactionRef: "",
+        date: new Date().toISOString().split("T")[0]
+      };
+      populateStandaloneReceiptCard(fallbackItem);
+      if (card) card.classList.remove("hidden");
+    } else {
+      if (errorBox) {
+        const errorText = document.getElementById("receiptDocErrorText");
+        if (errorText) errorText.innerText = `पावती क्रमांक "${receiptNo}" सापडला नाही. कृपया पावती क्रमांक तपासून पुन्हा प्रयत्न करा.`;
+        errorBox.classList.remove("hidden");
+      }
+    }
+  }
+
   lucide.createIcons();
 }
 
+function populateStandaloneReceiptCard(item) {
+  const orgName = localStorage.getItem("utsav_org_name") || "शिवाजी राजे संघटना";
+  const eventSubtitle = localStorage.getItem("utsav_event_subtitle") || "छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)";
+
+  const orgEl = document.getElementById("receiptDocOrgName");
+  const subEl = document.getElementById("receiptDocSubtitle");
+  const noEl = document.getElementById("receiptDocNo");
+  const dateEl = document.getElementById("receiptDocDate");
+  const nameEl = document.getElementById("receiptDocDonorName");
+  const addrEl = document.getElementById("receiptDocAddress");
+  const modeEl = document.getElementById("receiptDocMode");
+  const utrRow = document.getElementById("receiptDocUtrRow");
+  const utrEl = document.getElementById("receiptDocUtr");
+  const volEl = document.getElementById("receiptDocVolunteer");
+  const amtEl = document.getElementById("receiptDocAmount");
+  const wordsEl = document.getElementById("receiptDocInWords");
+
+  if (orgEl) orgEl.innerText = orgName;
+  if (subEl) subEl.innerText = eventSubtitle;
+  if (noEl) noEl.innerText = item.receiptNo;
+  if (dateEl) dateEl.innerText = item.date;
+  if (nameEl) nameEl.innerText = item.donorName;
+
+  let addressText = [];
+  if (item.wing) addressText.push(item.wing);
+  if (item.society) addressText.push(item.society);
+  if (item.flat) addressText.push(`(फ्लॅट: ${item.flat})`);
+  if (addrEl) addrEl.innerText = addressText.join(", ") || "स्थानिक रहिवासी";
+
+  if (modeEl) {
+    modeEl.innerText = `${item.mode} (${item.status || 'RECEIVED'})`;
+  }
+
+  if (utrRow && utrEl) {
+    const utr = item.transactionRef || item.utr;
+    if (utr) {
+      utrEl.innerText = utr;
+      utrRow.classList.remove("hidden");
+    } else {
+      utrRow.classList.add("hidden");
+    }
+  }
+
+  if (volEl) volEl.innerText = item.volunteer || "अधिकृत कमिटी";
+  if (amtEl) amtEl.innerText = `₹${parseFloat(item.amount).toLocaleString("en-IN")}.00`;
+  if (wordsEl) wordsEl.innerText = formatMarathiCurrencyWords(item.amount);
+
+  // Generate QR Code for Receipt Card
+  const qrBox = document.getElementById("receiptDocQrCode");
+  if (qrBox) {
+    qrBox.innerHTML = "";
+    let baseUrl = localStorage.getItem("utsav_live_url");
+    if (!baseUrl || baseUrl.trim() === "") {
+      if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+        baseUrl = window.location.href.split("?")[0];
+      } else {
+        baseUrl = "https://utsav-ledger.vercel.app";
+      }
+    }
+    baseUrl = baseUrl.replace(/\/+$/, "");
+    const verifyUrl = `${baseUrl}?receipt=${item.receiptNo}`;
+
+    new QRCode(qrBox, {
+      text: verifyUrl,
+      width: 72,
+      height: 72,
+      colorDark: "#7c2d12",
+      colorLight: "#ffffff"
+    });
+  }
+}
+
+function downloadOrPrintPdfReceipt() {
+  window.print();
+}
+
+function exitReceiptViewToApp() {
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  const view = document.getElementById("standaloneReceiptView");
+  if (view) view.classList.add("hidden");
+
+  const header = document.getElementById("appMainHeader");
+  const summary = document.getElementById("appLiveSummarySection");
+  const main = document.getElementById("appMainContainer");
+  const footer = document.getElementById("appFooter");
+
+  if (header) header.classList.remove("hidden");
+  if (summary) summary.classList.remove("hidden");
+  if (main) main.classList.remove("hidden");
+  if (footer) footer.classList.remove("hidden");
+
+  switchTab("donation");
+  lucide.createIcons();
+}
+
+function showPublicReceiptModal(receiptNo) {
+  enterStandaloneReceiptMode(receiptNo);
+}
+
 function closePublicReceiptModal() {
-  const modal = document.getElementById("publicReceiptModal");
-  if (modal) modal.classList.add("hidden");
+  exitReceiptViewToApp();
 }
 
 // -----------------------------------------------------------------------------
@@ -1404,7 +1624,7 @@ function deleteExpense(id) {
   }
 }
 
-function confirmResetAllData() {
+async function confirmResetAllData() {
   const pin = prompt("डेटा पूर्णपणे रिसेट करण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
   if (pin !== getAdminPin()) {
     alert("⚠️ चुकीचा ऍडमिन पिन! डेटा रिसेट रद्द केला.");
@@ -1414,6 +1634,16 @@ function confirmResetAllData() {
   if (confirm("⚠️ सावधान: सर्व जमा पावत्या आणि खर्चे डिलीट होऊन ₹0 ने नवीन सुरुवात होईल. तुम्ही खात्री करता का?")) {
     collections = [];
     expenses = [];
+    localStorage.removeItem("utsav_collections");
+    localStorage.removeItem("utsav_expenses");
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from("collections_simple").delete().neq("id", "keep_empty");
+        await supabaseClient.from("expenses_simple").delete().neq("id", "keep_empty");
+      } catch (e) {
+        console.warn("Cloud reset warning:", e);
+      }
+    }
     saveCollections();
     saveExpenses();
     updateNextReceiptNumber();
@@ -1591,7 +1821,7 @@ async function loadFromSupabase() {
     const { data: colData, error: colErr } = await supabaseClient
       .from("collections_simple")
       .select("*")
-      .order("collected_date", { ascending: false });
+      .order("receipt_no", { ascending: false });
 
     const { data: expData, error: expErr } = await supabaseClient
       .from("expenses_simple")
@@ -1599,37 +1829,41 @@ async function loadFromSupabase() {
       .order("bill_date", { ascending: false });
 
     if (!colErr && colData) {
-      collections = colData.map(r => ({
-        id: r.id,
-        receiptNo: r.receipt_no,
-        donorName: r.donor_name,
-        phone: r.phone,
-        society: r.society,
-        wing: r.wing,
-        flat: r.flat,
-        amount: parseFloat(r.amount),
-        mode: r.payment_mode,
-        status: r.payment_status,
-        volunteer: r.volunteer_name,
-        transactionRef: r.utr_number || "",
-        utr: r.utr_number || "",
-        date: r.collected_date,
-        createdAt: r.created_at
-      }));
+      collections = colData
+        .filter(r => r.id !== "col-1" && r.id !== "col-2" && r.donor_name !== "संजय देशमुख")
+        .map(r => ({
+          id: r.id,
+          receiptNo: r.receipt_no,
+          donorName: r.donor_name,
+          phone: r.phone,
+          society: r.society,
+          wing: r.wing,
+          flat: r.flat,
+          amount: parseFloat(r.amount),
+          mode: r.payment_mode,
+          status: r.payment_status,
+          volunteer: r.volunteer_name,
+          transactionRef: r.utr_number || "",
+          utr: r.utr_number || "",
+          date: r.collected_date,
+          createdAt: r.created_at
+        }));
       localStorage.setItem("utsav_collections", JSON.stringify(collections));
     }
 
     if (!expErr && expData) {
-      expenses = expData.map(r => ({
-        id: r.id,
-        category: r.category,
-        vendor: r.vendor_name,
-        amount: parseFloat(r.amount),
-        date: r.bill_date,
-        desc: r.description,
-        billUrl: r.bill_image_url,
-        createdAt: r.created_at
-      }));
+      expenses = expData
+        .filter(r => r.id !== "exp-1" && r.id !== "exp-2")
+        .map(r => ({
+          id: r.id,
+          category: r.category,
+          vendor: r.vendor_name,
+          amount: parseFloat(r.amount),
+          date: r.bill_date,
+          desc: r.description,
+          billUrl: r.bill_image_url,
+          createdAt: r.created_at
+        }));
       localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
     }
 
@@ -1638,6 +1872,13 @@ async function loadFromSupabase() {
     renderExpensesTable();
     updateNextReceiptNumber();
     if (typeof renderPublicVolunteers === "function") renderPublicVolunteers();
+
+    // If opened via WhatsApp link, refresh receipt view with fresh cloud data
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("receipt") || urlParams.get("no")) {
+      checkUrlForReceiptVerification();
+    }
+
     console.log("✅ Supabase data loaded successfully (Total:", collections.length, "collections)");
   } catch (e) {
     console.warn("Supabase load failed, using LocalStorage:", e);
@@ -1650,27 +1891,26 @@ async function loadFromSupabase() {
 const DEFAULT_GALLERY_PHOTOS = [];
 
 function loadGallery() {
-  const stored = localStorage.getItem("utsav_gallery");
+  // Fresh clean storage key (removes any stuck dummy/sample photos completely)
+  localStorage.removeItem("utsav_gallery"); // Wipe out old stuck sample photos
+  
+  const stored = localStorage.getItem("utsav_gallery_v2");
   if (stored !== null) {
     try {
       galleryItems = JSON.parse(stored);
-      // If old default dummy fort photos exist and user wants clean gallery, allow empty
-      if (Array.isArray(galleryItems) && galleryItems.some(p => p.id && p.id.startsWith("gal-") && parseInt(p.id.replace("gal-","")) < 10)) {
-        galleryItems = [];
-        saveGallery();
-      }
+      if (!Array.isArray(galleryItems)) galleryItems = [];
     } catch (e) {
       galleryItems = [];
     }
   } else {
     galleryItems = [];
-    saveGallery();
+    localStorage.setItem("utsav_gallery_v2", JSON.stringify([]));
   }
   renderGallery();
 }
 
 function saveGallery() {
-  localStorage.setItem("utsav_gallery", JSON.stringify(galleryItems));
+  localStorage.setItem("utsav_gallery_v2", JSON.stringify(galleryItems));
   renderGallery();
 }
 
@@ -1812,12 +2052,13 @@ function saveNewGalleryRecord(title, year, type, url) {
 function deleteGalleryItem(id) {
   const pin = prompt("फोटो डिलीट करण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
   if (pin !== getAdminPin()) {
-    alert("⚠️ चुकीचा ऍडमिन पिन! फोटो डिलीट केला नाही.");
+    alert("⚠️ चुकीचा ऍडमिन पिन! (Default PIN: 1930)");
     return;
   }
 
   if (confirm("हा फोटो गॅलरीतून कायमचा काढून टाकायचा का?")) {
     galleryItems = galleryItems.filter(item => item.id !== id);
     saveGallery();
+    alert("✓ फोटो यशस्वीरीत्या डिलीट झाला!");
   }
 }
