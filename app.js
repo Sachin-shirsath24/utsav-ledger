@@ -1647,74 +1647,23 @@ async function loadFromSupabase() {
 // =============================================================================
 // 10. EVENT GALLERY SYSTEM (उत्सव गॅलरी)
 // =============================================================================
-const DEFAULT_GALLERY_PHOTOS = [
-  {
-    id: "gal-1",
-    title: "किल्ले रायगड - स्वराज्याची राजधानी व ३२ मण सुवर्ण सिंहासन",
-    year: "2027",
-    type: "PHOTO",
-    url: "https://upload.wikimedia.org/wikipedia/commons/2/25/Raigad_Fort-Raigad_-Maharashtra-001.jpg",
-    createdAt: "2027-02-19"
-  },
-  {
-    id: "gal-2",
-    title: "छत्रपती शिवराज्याभिषेक सोहळा (६ जून १६७४) - ऐतिहासिक चित्र",
-    year: "2026",
-    type: "PHOTO",
-    url: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Chhatrapati_Shivaji_Maharaj_Rajyabhishek_03.jpg",
-    createdAt: "2026-02-19"
-  },
-  {
-    id: "gal-3",
-    title: "किल्ले शिवनेरी - छत्रपती शिवरायांचे पवित्र जन्मस्थान",
-    year: "2026",
-    type: "PHOTO",
-    url: "https://upload.wikimedia.org/wikipedia/commons/1/1e/Shivneri_Fort_Birth_place_of_Shivaji_maharaj.jpg",
-    createdAt: "2026-02-19"
-  },
-  {
-    id: "gal-4",
-    title: "किल्ले प्रतापगड - अफजलखान वधाचे अजिंक्य रणांगण",
-    year: "2025",
-    type: "PHOTO",
-    url: "https://upload.wikimedia.org/wikipedia/commons/0/00/Pratapgad_fort_front_view.jpg",
-    createdAt: "2025-02-19"
-  },
-  {
-    id: "gal-5",
-    title: "किल्ले सिंहगड (कोंढाणा) - सुभेदार तानाजी मालुसरे शौर्य भूमी",
-    year: "2025",
-    type: "PHOTO",
-    url: "https://upload.wikimedia.org/wikipedia/commons/f/f5/Sinhagad.jpg",
-    createdAt: "2025-02-19"
-  },
-  {
-    id: "gal-6",
-    title: "किल्ले सिंधुदुर्ग - समुद्रात उभारलेला छत्रपतींचा अजिंक्य जलदुर्ग",
-    year: "2024",
-    type: "PHOTO",
-    url: "https://upload.wikimedia.org/wikipedia/commons/8/87/Sindhudurg.jpg",
-    createdAt: "2024-02-19"
-  }
-];
+const DEFAULT_GALLERY_PHOTOS = [];
 
 function loadGallery() {
   const stored = localStorage.getItem("utsav_gallery");
   if (stored !== null) {
     try {
-      const parsed = JSON.parse(stored);
-      // Auto-upgrade if old unsplash links exist
-      if (Array.isArray(parsed) && parsed.some(p => p.url && p.url.includes("images.unsplash.com"))) {
-        galleryItems = DEFAULT_GALLERY_PHOTOS;
+      galleryItems = JSON.parse(stored);
+      // If old default dummy fort photos exist and user wants clean gallery, allow empty
+      if (Array.isArray(galleryItems) && galleryItems.some(p => p.id && p.id.startsWith("gal-") && parseInt(p.id.replace("gal-","")) < 10)) {
+        galleryItems = [];
         saveGallery();
-      } else {
-        galleryItems = parsed;
       }
     } catch (e) {
-      galleryItems = DEFAULT_GALLERY_PHOTOS;
+      galleryItems = [];
     }
   } else {
-    galleryItems = DEFAULT_GALLERY_PHOTOS;
+    galleryItems = [];
     saveGallery();
   }
   renderGallery();
