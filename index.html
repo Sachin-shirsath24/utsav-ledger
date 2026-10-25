@@ -100,9 +100,9 @@
         width: 100% !important;
         max-width: 100% !important;
         box-shadow: none !important;
-        border: 2px solid #d97706 !important;
+        border: 2px solid #334155 !important;
         margin: 0 !important;
-        padding: 24px !important;
+        padding: 20px !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -419,12 +419,12 @@
             <!-- Receipt Meta -->
             <div class="flex justify-between items-center text-xs py-2 border-b border-slate-100">
               <div>
-                <span class="text-slate-500">पावती क्र:</span>
+                <span class="text-slate-500 text-[11px] block">पावती क्र:</span>
                 <span id="prevReceiptNo" class="font-bold font-mono text-bhagwa-700">SJ-2027-0001</span>
               </div>
-              <div>
-                <span class="text-slate-500">दिनांक:</span>
-                <span id="prevDate" class="font-semibold text-slate-700">25-10-2026</span>
+              <div class="text-right">
+                <span class="text-slate-500 text-[11px] block">दिनांक व वेळ:</span>
+                <span id="prevDate" class="font-semibold text-slate-800">25-10-2026</span>
               </div>
             </div>
 
@@ -1707,114 +1707,100 @@
       </button>
     </div>
 
-    <!-- ROYAL A4 PRINTABLE RECEIPT CARD -->
-    <div id="standaloneReceiptCard" class="hidden w-full max-w-2xl bg-white rounded-2xl shadow-2xl p-5 sm:p-8 border-4 border-amber-500 relative overflow-hidden text-slate-800">
+    <!-- SIMPLE & CLEAN OFFICIAL A4 PRINTABLE RECEIPT CARD -->
+    <div id="standaloneReceiptCard" class="hidden w-full max-w-2xl bg-white rounded-xl shadow-lg p-5 sm:p-7 border-2 border-slate-700 relative text-slate-800 font-sans">
       
-      <!-- Decorative Corner Accents -->
-      <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-bhagwa-700 rounded-tl-xl pointer-events-none"></div>
-      <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-bhagwa-700 rounded-tr-xl pointer-events-none"></div>
-      <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-bhagwa-700 rounded-bl-xl pointer-events-none"></div>
-      <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-bhagwa-700 rounded-br-xl pointer-events-none"></div>
-
-      <!-- Watermark Background -->
-      <div class="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none select-none">
-        <span class="text-8xl sm:text-9xl font-black font-royal text-bhagwa-950">🚩</span>
-      </div>
-
-      <!-- Header: Royal Sanskrit Shloka -->
-      <div class="text-center pb-3">
-        <div class="inline-block bg-amber-100/90 text-amber-950 border border-amber-300 font-royal font-bold text-[11px] sm:text-xs px-3.5 py-1 rounded-full shadow-2xs mb-2 tracking-wider">
-          ॥ प्रतिपच्चंद्रलेखेव वर्धिष्णुर्विश्ववंदिता शाहसूनोः शिवस्यैषा मुद्रा भद्राय राजते ॥
+      <!-- Receipt Header: Clean & Simple Official Typography -->
+      <div class="text-center pb-2.5 border-b border-slate-300">
+        <div class="text-xs font-bold text-slate-600 tracking-wider">
+          🚩 ॥ जय भवानी । जय शिवाजी ॥ 🚩
         </div>
-        <h1 id="receiptDocOrgName" class="text-2xl sm:text-3xl font-royal font-black text-bhagwa-900 tracking-wide mt-1">
+        <h1 id="receiptDocOrgName" class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-wide mt-1">
           शिवाजी राजे संघटना
         </h1>
-        <p id="receiptDocSubtitle" class="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">
+        <p id="receiptDocSubtitle" class="text-xs sm:text-sm font-semibold text-slate-700 mt-0.5">
           छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)
         </p>
-        <p class="text-[11px] text-amber-800 font-semibold">
+        <p class="text-[11px] text-slate-500 font-medium mt-0.5">
           ॥ निश्चयाचा महामेरू । बहुत जनांसी आधारू ॥
         </p>
         
         <!-- Official Verified Badge -->
-        <div class="mt-2.5">
-          <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border-2 border-emerald-400 px-4 py-1 rounded-full text-xs font-bold shadow-xs">
-            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
-            अधिकृत डिजिटल देणगी पावती (Official Verified E-Receipt)
+        <div class="mt-2">
+          <span class="inline-block bg-slate-100 border border-slate-300 text-slate-800 px-3.5 py-0.5 rounded-full text-xs font-bold tracking-wide">
+            अधिकृत वर्गणी व देणगी पावती (Official Verified Receipt)
           </span>
         </div>
       </div>
 
-      <!-- Decorative Divider with Flag -->
-      <div class="relative my-3 flex items-center justify-center">
-        <div class="flex-grow border-t-2 border-amber-400"></div>
-        <span class="px-2 text-base text-bhagwa-600">🚩</span>
-        <div class="flex-grow border-t-2 border-amber-400"></div>
-      </div>
-
-      <!-- Receipt Meta Bar: No & Date -->
-      <div class="flex justify-between items-center bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-3 rounded-xl border border-amber-300 mb-4">
+      <!-- Receipt Meta Bar: Receipt No and Date & Time -->
+      <div class="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200 p-2.5 rounded-lg my-3 text-xs sm:text-sm">
         <div>
-          <span class="text-[10px] sm:text-xs text-slate-500 font-bold block uppercase tracking-wider">पावती क्र. (Receipt No)</span>
-          <span id="receiptDocNo" class="text-sm sm:text-lg font-mono font-black text-bhagwa-900">SJ-2027-0001</span>
+          <span class="text-slate-500 font-semibold block text-[11px]">पावती क्र. (Receipt No):</span>
+          <span id="receiptDocNo" class="font-mono font-bold text-base sm:text-lg text-slate-900">SJ-2027-0001</span>
         </div>
         <div class="text-right">
-          <span class="text-[10px] sm:text-xs text-slate-500 font-bold block uppercase tracking-wider">दिनांक (Date)</span>
-          <span id="receiptDocDate" class="text-xs sm:text-sm font-bold text-slate-800">25/10/2026</span>
+          <span class="text-slate-500 font-semibold block text-[11px]">दिनांक व वेळ (Date & Time):</span>
+          <span id="receiptDocDateTime" class="font-bold text-slate-900">25-10-2026 | 11:30 PM</span>
+          <span id="receiptDocDate" class="hidden">25-10-2026</span>
         </div>
       </div>
 
-      <!-- Donor Details Box -->
-      <div class="bg-slate-50/80 rounded-xl p-3.5 sm:p-4 border border-slate-200 space-y-2.5 text-xs sm:text-sm">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-2">
-          <span class="text-slate-500 font-bold text-xs">देणगीदाराचे नाव (Donor Full Name):</span>
-          <span id="receiptDocDonorName" class="font-bold text-slate-900 text-sm sm:text-base">राहुल रमेश पाटील</span>
+      <!-- Donor Details Table: Clean & Structured -->
+      <div class="border border-slate-200 rounded-lg overflow-hidden my-3 text-xs sm:text-sm bg-white">
+        <div class="flex border-b border-slate-200 px-3.5 py-2">
+          <div class="w-1/3 text-slate-500 font-semibold">देणगीदाराचे नाव:</div>
+          <div id="receiptDocDonorName" class="w-2/3 font-bold text-slate-900 text-sm sm:text-base">राहुल रमेश पाटील</div>
         </div>
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-2">
-          <span class="text-slate-500 font-bold text-xs">पत्ता / सदनिका (Address):</span>
-          <span id="receiptDocAddress" class="font-semibold text-slate-800">A Wing, शिवाजी पार्क (फ्लॅट: 101)</span>
+        <div class="flex border-b border-slate-200 px-3.5 py-1.5 bg-slate-50/60">
+          <div class="w-1/3 text-slate-500 font-semibold">संपर्क (मोबाईल):</div>
+          <div id="receiptDocPhone" class="w-2/3 font-mono font-semibold text-slate-800">+91 9876543210</div>
         </div>
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-2">
-          <span class="text-slate-500 font-bold text-xs">पेमेंट प्रकार (Payment Mode):</span>
-          <div class="flex items-center gap-2">
+        <div class="flex border-b border-slate-200 px-3.5 py-1.5">
+          <div class="w-1/3 text-slate-500 font-semibold">पत्ता / सदनिका:</div>
+          <div id="receiptDocAddress" class="w-2/3 font-medium text-slate-800">A Wing, शिवाजी पार्क (फ्लॅट: 101)</div>
+        </div>
+        <div class="flex border-b border-slate-200 px-3.5 py-1.5 bg-slate-50/60">
+          <div class="w-1/3 text-slate-500 font-semibold">पेमेंट प्रकार (Mode):</div>
+          <div class="w-2/3 flex items-center gap-2">
             <span id="receiptDocMode" class="font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 text-xs">CASH (RECEIVED)</span>
-            <span id="receiptDocUtrRow" class="hidden text-xs text-slate-600">UTR: <strong id="receiptDocUtr" class="font-mono text-slate-900"></strong></span>
+            <span id="receiptDocUtrRow" class="hidden text-xs text-slate-600">बँक UTR: <strong id="receiptDocUtr" class="font-mono text-slate-900"></strong></span>
           </div>
         </div>
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <span class="text-slate-500 font-bold text-xs">स्वीकारकर्ता अधिकृत कार्यकर्ता (Receiver):</span>
-          <span id="receiptDocVolunteer" class="font-bold text-slate-800">आकाश शिंदे</span>
+        <div class="flex px-3.5 py-1.5">
+          <div class="w-1/3 text-slate-500 font-semibold">स्वीकारकर्ता (Volunteer):</div>
+          <div id="receiptDocVolunteer" class="w-2/3 font-medium text-slate-800">आकाश शिंदे</div>
         </div>
       </div>
 
-      <!-- Grand Amount Banner -->
-      <div class="my-4 bg-gradient-to-r from-bhagwa-600 via-amber-600 to-bhagwa-700 text-white rounded-2xl p-4 sm:p-5 text-center shadow-lg border-2 border-amber-300 relative">
-        <p class="text-[11px] sm:text-xs text-amber-100 font-bold uppercase tracking-widest">
-          प्राप्त वर्गणी देणगी रक्कम (Amount Received)
+      <!-- Grand Amount Box: High Contrast, Clean & Clear -->
+      <div class="my-3 border-2 border-slate-700 bg-slate-50 rounded-lg p-3 text-center">
+        <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          प्राप्त वर्गणी रक्कम (Amount Received)
         </p>
-        <p id="receiptDocAmount" class="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mt-1 drop-shadow-md">
+        <p id="receiptDocAmount" class="text-3xl sm:text-4xl font-extrabold font-mono text-slate-900 my-0.5">
           ₹200.00
         </p>
-        <p class="text-xs sm:text-sm text-amber-100 font-bold mt-1.5">
-          अक्षरी: <span id="receiptDocInWords" class="text-white underline decoration-amber-300 underline-offset-4">दोनशे रुपये फक्त</span>
+        <p class="text-xs sm:text-sm font-semibold text-slate-800">
+          अक्षरी: <span id="receiptDocInWords" class="text-slate-900 font-bold underline decoration-slate-400 underline-offset-4">दोनशे रुपये फक्त</span>
         </p>
       </div>
 
       <!-- Verification Footer & Seal -->
-      <div class="grid grid-cols-3 gap-3 items-center pt-2 pb-1 border-t-2 border-slate-200">
+      <div class="grid grid-cols-3 gap-2 items-center pt-2 pb-1 border-t border-slate-300">
         <!-- Verification QR -->
         <div class="flex flex-col items-center text-center">
-          <div id="receiptDocQrCode" class="p-1 bg-white border border-slate-300 rounded-lg shadow-2xs"></div>
-          <span class="text-[9px] text-slate-500 font-bold mt-1">स्कॅन करून पडताळा</span>
+          <div id="receiptDocQrCode" class="p-1 bg-white border border-slate-300 rounded shadow-2xs"></div>
+          <span class="text-[9px] text-slate-500 font-semibold mt-1">ऑनलाइन पडताळणी QR</span>
         </div>
 
         <!-- Official Seal / Stamp -->
         <div class="flex items-center justify-center">
-          <div class="w-20 h-20 sm:w-24 sm:h-24 border-2 border-dashed border-bhagwa-700 rounded-full flex flex-col items-center justify-center text-center p-1 text-[8px] sm:text-[9px] text-bhagwa-900 font-black leading-tight transform -rotate-6 shadow-inner bg-orange-50/70">
-            <span class="text-xs sm:text-sm">🚩</span>
-            <span>शिवाजी राजे</span>
+          <div class="w-20 h-20 border-2 border-dashed border-red-700 rounded-full flex flex-col items-center justify-center text-center p-1 text-[8px] text-red-900 font-bold leading-tight transform -rotate-3 bg-red-50/50">
+            <span class="text-xs">🚩</span>
+            <span class="font-extrabold">शिवाजी राजे</span>
             <span>संघटना</span>
-            <span class="text-[7px] text-amber-700">★ अधिकृत शिक्का ★</span>
+            <span class="text-[7px] text-red-700 font-bold">★ अधिकृत शिक्का ★</span>
             <span class="text-[7px]">19 Feb उत्सव</span>
           </div>
         </div>
@@ -1822,19 +1808,19 @@
         <!-- Signature -->
         <div class="text-right">
           <div class="h-10 flex items-end justify-end">
-            <span class="text-[10px] font-royal font-bold text-slate-400 italic">Digitally Verified</span>
+            <span class="text-[11px] font-mono text-emerald-700 font-bold">✓ Digitally Signed</span>
           </div>
-          <p class="text-xs font-black text-slate-800 border-t border-slate-400 pt-1">अधिकृत खजिनदार / अध्यक्ष</p>
+          <p class="text-xs font-bold text-slate-900 border-t border-slate-400 pt-1">अधिकृत खजिनदार / अध्यक्ष</p>
           <p class="text-[10px] text-slate-500 font-medium">शिवाजी राजे संघटना</p>
         </div>
       </div>
 
       <!-- Legal / Audit Note & Slogan -->
-      <div class="text-center pt-3 border-t border-slate-100">
-        <p class="font-royal text-base sm:text-lg font-black text-bhagwa-800 tracking-wide">
+      <div class="text-center pt-2 border-t border-slate-200">
+        <p class="text-sm font-bold text-slate-800">
           ॥ जय भवानी । जय शिवाजी ॥
         </p>
-        <p class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">
+        <p class="text-[9px] text-slate-500 mt-0.5">
           ही पावती UtsavLedger संगणकीय प्रणालीद्वारे तयार केली असून सर्व सार्वजनिक ऑडिट व पारदर्शकता नियमांचे पालन करते.
         </p>
       </div>
@@ -1861,6 +1847,6 @@
   </footer>
 
   <!-- App Script with cache-busting -->
-  <script src="app.js?v=2.5"></script>
+  <script src="app.js?v=2.7"></script>
 </body>
 </html>

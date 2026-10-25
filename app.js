@@ -108,6 +108,14 @@ function loadOrgBrandSettings() {
   if (headerBadge) headerBadge.innerText = badge;
   if (receiptTitle) receiptTitle.innerText = orgName;
   if (receiptSubtitle) receiptSubtitle.innerText = subtitle;
+
+  const prevDateEl = document.getElementById("prevDate");
+  if (prevDateEl) {
+    const now = new Date();
+    const dStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
+    const tStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    prevDateEl.innerText = `${dStr} | ${tStr}`;
+  }
 }
 
 function loadVolunteers() {
@@ -576,7 +584,12 @@ function handleDonationSubmit(e) {
   const amount = parseFloat(document.getElementById("donationAmount").value);
   const mode = document.getElementById("paymentMode").value;
   const volunteer = document.getElementById("volunteerSelect") ? document.getElementById("volunteerSelect").value : "कार्यकर्ता";
-  const today = new Date().toISOString().split("T")[0];
+  
+  const now = new Date();
+  const todayIso = now.toISOString().split("T")[0];
+  const dateFormatted = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
+  const nowTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const fullDateTime = `${dateFormatted} | ${nowTime}`;
 
   let transactionRef = "";
 
@@ -625,7 +638,10 @@ function handleDonationSubmit(e) {
     transactionRef: transactionRef,
     status: mode === "PLEDGE" ? "PLEDGED" : (mode === "UPI" ? "PENDING_VERIFY" : "RECEIVED"),
     volunteer,
-    date: today
+    date: todayIso,
+    time: nowTime,
+    dateTime: fullDateTime,
+    createdAt: now.toISOString()
   };
 
   // ONLY NOW: Add to collections register & persist
@@ -639,7 +655,7 @@ function handleDonationSubmit(e) {
   document.getElementById("prevPaymentMode").innerText = `${newRecord.mode} (${newRecord.status})`;
   document.getElementById("prevAmount").innerText = `₹${newRecord.amount.toFixed(2)}`;
   document.getElementById("prevVolunteer").innerText = newRecord.volunteer;
-  document.getElementById("prevDate").innerText = today;
+  document.getElementById("prevDate").innerText = fullDateTime;
 
   // Show/Hide UTR on Receipt Card
   const utrRow = document.getElementById("prevUtrRow");
@@ -818,8 +834,23 @@ async function downloadActiveReceiptPdf(item = null) {
   }
 }
 
-// Share receipt on WhatsApp (Direct .pdf file share on mobile or auto-download + direct link on web)
-async function shareReceiptPdfOnWhatsApp(item = null) {
+// Clean & normalize Indian phone numbers to international 91 format for WhatsApp
+function getCleanWhatsAppPhone(rawPhone) {
+  if (!rawPhone) return "";
+  let digits = rawPhone.toString().replace(/[^0-9]/g, "");
+  // If starts with 0 and has 11 digits (e.g. 09822012345), remove leading 0
+  if (digits.length === 11 && digits.startsWith("0")) {
+    digits = digits.substring(1);
+  }
+  // If 10 digits (standard Indian mobile number), prepend 91
+  if (digits.length === 10) {
+    digits = "91" + digits;
+  }
+  return digits;
+}
+
+// Share receipt directly to WhatsApp with donor's phone number fetched automatically (PC/Laptop + Mobile)
+function shareReceiptPdfOnWhatsApp(item = null) {
   if (!item) {
     const currentReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
     if (currentReceiptNo) {
@@ -835,50 +866,44 @@ async function shareReceiptPdfOnWhatsApp(item = null) {
     return;
   }
 
-  if (!item.phone) {
-    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही!");
+  const rawPhone = item.phone || (document.getElementById("donorPhone") ? document.getElementById("donorPhone").value : "");
+  const cleanPhone = getCleanWhatsAppPhone(rawPhone);
+
+  if (!cleanPhone || cleanPhone.length < 10) {
+    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही किंवा चुकीचा आहे!\nकृपया पावती भरताना १०-अंकी वैध मोबाइल नंबर टाका.");
     return;
   }
 
-  let cleanPhone = item.phone.replace(/[^0-9]/g, "");
-  if (cleanPhone.length === 10) {
-    cleanPhone = "91" + cleanPhone;
-  }
-
-  // 1. Mobile Device: Try Native Document Share (Direct .PDF file attachment into WhatsApp)
-  if (navigator.share && window.File && typeof html2pdf !== "undefined") {
-    try {
-      const pdfBlob = await generateReceiptPdfBlob(item);
-      if (pdfBlob) {
-        const pdfFile = new File([pdfBlob], `पावती-${item.receiptNo}.pdf`, { type: "application/pdf" });
-        if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-          await navigator.share({
-            files: [pdfFile],
-            title: `शिवाजी राजे संघटना - पावती ${item.receiptNo}`,
-            text: `🚩 जय भवानी जय शिवाजी! सस्नेह नमस्कार श्री/श्रीमती ${item.donorName}, आपली ₹${parseFloat(item.amount).toLocaleString("en-IN")}/- ची अधिकृत देणगी पावती PDF सोबत जोडली आहे.`
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      console.log("Web Share API not completed or cancelled:", e);
-    }
-  }
-
-  // 2. Desktop or WhatsApp Web: Auto-download PDF on computer + open WhatsApp chat with direct PDF link
-  try {
-    if (typeof html2pdf !== "undefined") {
-      downloadActiveReceiptPdf(item);
-    }
-  } catch (e) {
-    console.warn("Auto-download notice:", e);
-  }
-
+  // Format the official receipt text with direct PDF download link
   const receiptMsg = formatWhatsAppReceipt(item);
   const encodedMsg = encodeURIComponent(receiptMsg);
-  const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
 
-  window.open(whatsappUrl, "_blank");
+  // Detect PC / Laptop vs Mobile phone
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // On PC / Laptop: Use web.whatsapp.com directly to open WhatsApp Web and load donor's chat
+  // On Mobile: Use api.whatsapp.com to launch native WhatsApp application
+  const whatsappUrl = isMobile
+    ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`
+    : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
+
+  // IMPORTANT: Open IMMEDIATELY without any await/delay so browser popup blocker NEVER blocks it!
+  const win = window.open(whatsappUrl, "_blank");
+  if (!win || win.closed || typeof win.closed === "undefined") {
+    // If browser strictly blocked popup, redirect active tab directly
+    window.location.href = whatsappUrl;
+  }
+
+  // Auto-download local PDF file after 600ms in background so volunteer also has a copy
+  if (typeof html2pdf !== "undefined") {
+    setTimeout(() => {
+      try {
+        downloadActiveReceiptPdf(item);
+      } catch (e) {
+        console.warn("Background PDF download note:", e);
+      }
+    }, 600);
+  }
 }
 
 function shareWhatsApp() {
@@ -887,6 +912,39 @@ function shareWhatsApp() {
 
 function sendWhatsAppReceipt(item) {
   shareReceiptPdfOnWhatsApp(item);
+}
+
+function formatReceiptDateTime(item) {
+  if (!item) return "";
+  if (item.dateTime) return item.dateTime;
+
+  // Format date part nicely as DD-MM-YYYY if it's YYYY-MM-DD
+  let dStr = item.date || "";
+  if (dStr && /^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+    const parts = dStr.split("-");
+    dStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+
+  if (item.time) {
+    return `${dStr} | ${item.time}`;
+  }
+
+  if (item.createdAt) {
+    try {
+      const d = new Date(item.createdAt);
+      if (!isNaN(d.getTime())) {
+        const formattedDate = d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
+        const formattedTime = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+        return `${formattedDate} | ${formattedTime}`;
+      }
+    } catch (e) {}
+  }
+
+  if (dStr) return dStr;
+  const now = new Date();
+  const defDate = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
+  const defTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return `${defDate} | ${defTime}`;
 }
 
 function formatWhatsAppReceipt(item) {
@@ -905,6 +963,7 @@ function formatWhatsAppReceipt(item) {
   baseUrl = baseUrl.replace(/\/+$/, "");
   // Direct PDF download link
   const directReceiptLink = `${baseUrl}?receipt=${encodeURIComponent(item.receiptNo)}&amount=${item.amount}&download=pdf`;
+  const displayDateTime = formatReceiptDateTime(item);
 
   return `🚩 *जय भवानी | जय शिवाजी* 🚩
 =============================
@@ -916,7 +975,7 @@ function formatWhatsAppReceipt(item) {
 उत्सवासाठी आपली वर्गणी यशस्वीरीत्या जमा झाली असून अधिकृत पावती PDF स्वरूपात तयार आहे:
 
 📄 *पावती क्र:* ${item.receiptNo}
-📅 *तारीख:* ${item.date}
+📅 *दिनांक व वेळ:* ${displayDateTime}
 🏠 *पत्ता:* ${item.wing || ''}, ${item.society || ''} ${item.flat ? '(फ्लॅट: ' + item.flat + ')' : ''}
 💰 *रक्कम:* ₹${parseFloat(item.amount).toLocaleString("en-IN")}/- (${formatMarathiCurrencyWords(item.amount)})
 💳 *मोड:* ${item.mode} (${item.status || 'RECEIVED'})${item.transactionRef ? `\n🔢 *बँक UTR क्र:* ${item.transactionRef}` : ''}
@@ -1054,6 +1113,12 @@ async function enterStandaloneReceiptMode(receiptNo) {
         .maybeSingle();
 
       if (data && !error) {
+        let cTime = "";
+        if (data.created_at) {
+          try {
+            cTime = new Date(data.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+          } catch (e) {}
+        }
         item = {
           id: data.id,
           receiptNo: data.receipt_no,
@@ -1068,7 +1133,9 @@ async function enterStandaloneReceiptMode(receiptNo) {
           volunteer: data.volunteer_name,
           transactionRef: data.utr_number || "",
           utr: data.utr_number || "",
-          date: data.collected_date
+          date: data.collected_date,
+          time: cTime,
+          createdAt: data.created_at
         };
         collections.unshift(item);
       }
@@ -1097,6 +1164,9 @@ async function enterStandaloneReceiptMode(receiptNo) {
     const fallbackAmt = params.get("amount") || params.get("amt");
     const fallbackName = params.get("name") || params.get("donor");
     if (fallbackAmt) {
+      const now = new Date();
+      const dStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
+      const tStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
       const fallbackItem = {
         receiptNo: cleanReceiptNo,
         donorName: fallbackName || "सत्यापित देणगीदार",
@@ -1108,7 +1178,10 @@ async function enterStandaloneReceiptMode(receiptNo) {
         status: "RECEIVED",
         volunteer: "अधिकृत कमिटी",
         transactionRef: "",
-        date: new Date().toISOString().split("T")[0]
+        date: now.toISOString().split("T")[0],
+        time: tStr,
+        dateTime: `${dStr} | ${tStr}`,
+        createdAt: now.toISOString()
       };
       populateStandaloneReceiptCard(fallbackItem);
       if (card) card.classList.remove("hidden");
@@ -1138,7 +1211,9 @@ function populateStandaloneReceiptCard(item) {
   const subEl = document.getElementById("receiptDocSubtitle");
   const noEl = document.getElementById("receiptDocNo");
   const dateEl = document.getElementById("receiptDocDate");
+  const dateTimeEl = document.getElementById("receiptDocDateTime");
   const nameEl = document.getElementById("receiptDocDonorName");
+  const phoneEl = document.getElementById("receiptDocPhone");
   const addrEl = document.getElementById("receiptDocAddress");
   const modeEl = document.getElementById("receiptDocMode");
   const utrRow = document.getElementById("receiptDocUtrRow");
@@ -1147,11 +1222,17 @@ function populateStandaloneReceiptCard(item) {
   const amtEl = document.getElementById("receiptDocAmount");
   const wordsEl = document.getElementById("receiptDocInWords");
 
+  const fullDateTime = formatReceiptDateTime(item);
+
   if (orgEl) orgEl.innerText = orgName;
   if (subEl) subEl.innerText = eventSubtitle;
   if (noEl) noEl.innerText = item.receiptNo;
-  if (dateEl) dateEl.innerText = item.date;
+  if (dateEl) dateEl.innerText = fullDateTime;
+  if (dateTimeEl) dateTimeEl.innerText = fullDateTime;
   if (nameEl) nameEl.innerText = item.donorName;
+  if (phoneEl) {
+    phoneEl.innerText = item.phone ? `+91 ${item.phone}` : "उपलब्ध नाही";
+  }
 
   let addressText = [];
   if (item.wing) addressText.push(item.wing);
@@ -1196,7 +1277,7 @@ function populateStandaloneReceiptCard(item) {
       text: verifyUrl,
       width: 72,
       height: 72,
-      colorDark: "#7c2d12",
+      colorDark: "#1e293b",
       colorLight: "#ffffff"
     });
   }
@@ -1482,7 +1563,7 @@ function viewReceiptDirectly(id) {
   document.getElementById("prevPaymentMode").innerText = `${item.mode} (${item.status})`;
   document.getElementById("prevAmount").innerText = `₹${item.amount.toFixed(2)}`;
   document.getElementById("prevVolunteer").innerText = item.volunteer;
-  document.getElementById("prevDate").innerText = item.date;
+  document.getElementById("prevDate").innerText = formatReceiptDateTime(item);
 
   const utrRow = document.getElementById("prevUtrRow");
   const utrDisplay = document.getElementById("prevUtr");
