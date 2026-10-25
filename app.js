@@ -266,16 +266,64 @@ function populateVolunteerDropdown() {
 
   if (currentVal) select.value = currentVal;
 }
+// -----------------------------------------------------------------------------
+// DELETED RECORDS REGISTRY (Tombstone tracker to prevent re-appearance on refresh)
+// -----------------------------------------------------------------------------
+function getDeletedReceipts() {
+  try {
+    const raw = localStorage.getItem("utsav_deleted_receipts");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function markReceiptAsDeleted(receiptNo, id = null) {
+  const list = getDeletedReceipts();
+  if (receiptNo && !list.includes(receiptNo)) list.push(receiptNo);
+  if (id && !list.includes(id)) list.push(id);
+  localStorage.setItem("utsav_deleted_receipts", JSON.stringify(list));
+}
+
+function unmarkReceiptAsDeleted(receiptNo, id = null) {
+  let list = getDeletedReceipts();
+  list = list.filter(item => item !== receiptNo && item !== id);
+  localStorage.setItem("utsav_deleted_receipts", JSON.stringify(list));
+}
+
+function getDeletedExpenses() {
+  try {
+    const raw = localStorage.getItem("utsav_deleted_expenses");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function markExpenseAsDeleted(id) {
+  const list = getDeletedExpenses();
+  if (id && !list.includes(id)) list.push(id);
+  localStorage.setItem("utsav_deleted_expenses", JSON.stringify(list));
+}
+
 function loadStoredData() {
   const storedCollections = localStorage.getItem("utsav_collections");
   const storedExpenses = localStorage.getItem("utsav_expenses");
+  const deletedReceipts = getDeletedReceipts();
+  const deletedExpenses = getDeletedExpenses();
 
   if (storedCollections !== null) {
     try {
       collections = JSON.parse(storedCollections);
       if (!Array.isArray(collections)) collections = [];
-      // Clean out the old dummy demo entries so they don't corrupt real collections
-      collections = collections.filter(c => c.id !== "col-1" && c.id !== "col-2" && c.donorName !== "संजय देशमुख");
+      // Clean out old dummy demo entries and any deleted receipts
+      collections = collections.filter(c => 
+        c.id !== "col-1" && 
+        c.id !== "col-2" && 
+        c.donorName !== "संजय देशमुख" &&
+        !deletedReceipts.includes(c.receiptNo) &&
+        !deletedReceipts.includes(c.id)
+      );
     } catch (e) {
       collections = [];
     }
@@ -287,7 +335,11 @@ function loadStoredData() {
     try {
       expenses = JSON.parse(storedExpenses);
       if (!Array.isArray(expenses)) expenses = [];
-      expenses = expenses.filter(e => e.id !== "exp-1" && e.id !== "exp-2");
+      expenses = expenses.filter(e => 
+        e.id !== "exp-1" && 
+        e.id !== "exp-2" &&
+        !deletedExpenses.includes(e.id)
+      );
     } catch (e) {
       expenses = [];
     }
@@ -693,6 +745,7 @@ function handleDonationSubmit(e) {
   };
 
   // ONLY NOW: Add to collections register & persist
+  unmarkReceiptAsDeleted(newRecord.receiptNo, newRecord.id);
   collections.unshift(newRecord);
   saveCollections();
 
@@ -1450,6 +1503,7 @@ function handleExpenseSubmit(e) {
     desc
   };
 
+  unmarkExpenseAsDeleted(newExpense.id);
   expenses.unshift(newExpense);
   saveExpenses();
 
@@ -2005,19 +2059,30 @@ async function deleteCollection(id) {
   }
 
   if (confirm(`⚠️ सावधान: पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) कायमस्वरूपी डिलीट करायची आहे का?\n\nया पावतीची रक्कम एकूण जमा हिशोबातून वजा केली जाईल.`)) {
-    collections = collections.filter(c => c.id !== id);
+    // 1. Permanently register in deleted receipts registry so it NEVER reappears on refresh
+    markReceiptAsDeleted(item.receiptNo, item.id);
 
-    // Sync deletion to Supabase cloud if connected
+    // 2. Remove immediately from active collections
+    collections = collections.filter(c => c.id !== id && c.receiptNo !== item.receiptNo);
+
+    // 3. Save to localStorage & update UI immediately
+    saveCollections();
+    updateNextReceiptNumber();
+
+    // 4. Sync deletion to Supabase cloud by BOTH receipt_no AND id
     if (supabaseClient) {
       try {
-        await supabaseClient.from("collections_simple").delete().eq("id", id);
+        if (item.receiptNo) {
+          await supabaseClient.from("collections_simple").delete().eq("receipt_no", item.receiptNo);
+        }
+        if (id) {
+          await supabaseClient.from("collections_simple").delete().eq("id", id);
+        }
       } catch (err) {
         console.warn("Supabase collection delete error:", err);
       }
     }
 
-    saveCollections();
-    updateNextReceiptNumber();
     alert(`✓ पावती क्र. ${item.receiptNo} यशस्वीरीत्या डिलीट केली गेली.`);
   }
 }
@@ -2037,9 +2102,16 @@ async function deleteExpense(id) {
   }
 
   if (confirm(`⚠️ सावधान: खर्च नोंद (${item.vendor} - ₹${item.amount}) कायमस्वरूपी डिलीट करायची आहे का?`)) {
+    // 1. Permanently register in deleted expenses registry
+    markExpenseAsDeleted(id);
+
+    // 2. Remove immediately from active expenses
     expenses = expenses.filter(e => e.id !== id);
 
-    // Sync deletion to Supabase cloud if connected
+    // 3. Save to localStorage & update UI immediately
+    saveExpenses();
+
+    // 4. Sync deletion to Supabase cloud
     if (supabaseClient) {
       try {
         await supabaseClient.from("expenses_simple").delete().eq("id", id);
@@ -2048,7 +2120,6 @@ async function deleteExpense(id) {
       }
     }
 
-    saveExpenses();
     alert(`✓ खर्च नोंद यशस्वीरीत्या डिलीट केली गेली.`);
   }
 }
@@ -2061,6 +2132,13 @@ async function confirmResetAllData() {
   }
 
   if (confirm("⚠️ सावधान: सर्व जमा पावत्या आणि खर्चे डिलीट होऊन ₹0 ने नवीन सुरुवात होईल. तुम्ही खात्री करता का?")) {
+    const allRecNos = collections.map(c => c.receiptNo).filter(Boolean);
+    const allColIds = collections.map(c => c.id).filter(Boolean);
+    const allExpIds = expenses.map(e => e.id).filter(Boolean);
+    allRecNos.forEach(r => markReceiptAsDeleted(r));
+    allColIds.forEach(i => markReceiptAsDeleted(i));
+    allExpIds.forEach(i => markExpenseAsDeleted(i));
+
     collections = [];
     expenses = [];
     localStorage.removeItem("utsav_collections");
@@ -2261,9 +2339,23 @@ async function loadFromSupabase() {
       .select("*")
       .order("bill_date", { ascending: false });
 
+    const deletedReceipts = getDeletedReceipts();
+    const deletedExpenses = getDeletedExpenses();
+
     if (!colErr && colData) {
       collections = colData
-        .filter(r => r.id !== "col-1" && r.id !== "col-2" && r.donor_name !== "संजय देशमुख")
+        .filter(r => {
+          if (r.id === "col-1" || r.id === "col-2" || r.donor_name === "संजय देशमुख") return false;
+          if (deletedReceipts.includes(r.receipt_no) || deletedReceipts.includes(r.id)) {
+            // Actively purge from cloud in background so it's permanently erased
+            if (supabaseClient) {
+              if (r.receipt_no) supabaseClient.from("collections_simple").delete().eq("receipt_no", r.receipt_no).then();
+              if (r.id) supabaseClient.from("collections_simple").delete().eq("id", r.id).then();
+            }
+            return false;
+          }
+          return true;
+        })
         .map(r => ({
           id: r.id,
           receiptNo: r.receipt_no,
@@ -2282,11 +2374,23 @@ async function loadFromSupabase() {
           createdAt: r.created_at
         }));
       localStorage.setItem("utsav_collections", JSON.stringify(collections));
+      updateLiveStats();
+      renderCollectionsTable();
+      updateNextReceiptNumber();
     }
 
     if (!expErr && expData) {
       expenses = expData
-        .filter(r => r.id !== "exp-1" && r.id !== "exp-2")
+        .filter(r => {
+          if (r.id === "exp-1" || r.id === "exp-2") return false;
+          if (deletedExpenses.includes(r.id)) {
+            if (supabaseClient) {
+              supabaseClient.from("expenses_simple").delete().eq("id", r.id).then();
+            }
+            return false;
+          }
+          return true;
+        })
         .map(r => ({
           id: r.id,
           category: r.category,
@@ -2298,6 +2402,8 @@ async function loadFromSupabase() {
           createdAt: r.created_at
         }));
       localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
+      updateLiveStats();
+      renderExpensesTable();
     }
 
     // Load Volunteers from Supabase (for multi-device sync)
