@@ -340,6 +340,17 @@ function togglePaymentMode() {
   setPaymentMode(mode);
 }
 
+function setQuickDonationAmt(amount) {
+  const input = document.getElementById("donationAmount");
+  if (input) {
+    input.value = amount;
+    const mode = document.getElementById("paymentMode")?.value;
+    if (mode === "UPI") {
+      generateLiveUpiQr(amount);
+    }
+  }
+}
+
 function renderQrSafely(container, text, size = 120) {
   if (!container) return;
   container.innerHTML = "";
@@ -653,10 +664,10 @@ function handleDonationSubmit(e) {
     colorLight: "#ffffff"
   });
 
-  // Auto Send WhatsApp Receipt if checked
+  // Auto Send WhatsApp PDF Receipt if checked
   const shouldSendWhatsApp = document.getElementById("autoWhatsAppCheck")?.checked;
   if (shouldSendWhatsApp && newRecord.phone) {
-    sendWhatsAppReceipt(newRecord);
+    shareReceiptPdfOnWhatsApp(newRecord);
   } else {
     alert(`✓ पावती क्र. ${newRecord.receiptNo} यशस्वीरीत्या तयार झाली आणि रजिस्टरमध्ये जोडली!\nरक्कम: ₹${newRecord.amount}\nपेमेंट: ${newRecord.mode} ${newRecord.transactionRef ? '(UTR: ' + newRecord.transactionRef + ')' : ''}`);
   }
@@ -684,50 +695,216 @@ function copyOnlyReceiptLink() {
     }
   }
   baseUrl = baseUrl.replace(/\/+$/, "");
-  const directLink = `${baseUrl}?receipt=${receiptNo}`;
+  const directLink = `${baseUrl}?receipt=${receiptNo}&download=pdf`;
 
   navigator.clipboard.writeText(directLink).then(() => {
-    alert(`✓ पावती लिंक क्लिपबोर्डवर कॉपी झाली!\n${directLink}`);
+    alert(`✓ थेट PDF पावती लिंक क्लिपबोर्डवर कॉपी झाली!\n${directLink}`);
   }).catch(() => {
     prompt("पावती लिंक कॉपी करा:", directLink);
   });
 }
 
-function shareWhatsApp() {
-  const currentReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
-  let item = null;
-  if (currentReceiptNo) {
-    item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === currentReceiptNo.toUpperCase());
+// -----------------------------------------------------------------------------
+// PDF DOCUMENT GENERATION & WHATSAPP PDF SHARING
+// -----------------------------------------------------------------------------
+
+// Helper to generate a genuine PDF Blob using html2pdf
+async function generateReceiptPdfBlob(item) {
+  if (typeof html2pdf === "undefined") return null;
+
+  populateStandaloneReceiptCard(item);
+
+  const card = document.getElementById("standaloneReceiptCard");
+  const view = document.getElementById("standaloneReceiptView");
+  if (!card || !view) return null;
+
+  const wasViewHidden = view.classList.contains("hidden");
+  const wasCardHidden = card.classList.contains("hidden");
+
+  if (wasViewHidden || wasCardHidden) {
+    view.style.position = "fixed";
+    view.style.left = "-9999px";
+    view.style.top = "0";
+    view.style.width = "800px";
+    view.classList.remove("hidden");
+    card.classList.remove("hidden");
   }
-  if (!item && collections.length > 0) {
-    item = collections[0];
+
+  const opt = {
+    margin: [6, 6, 6, 6],
+    filename: `पावती-${item.receiptNo}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    const pdfBlob = await html2pdf().set(opt).from(card).outputPdf('blob');
+    return pdfBlob;
+  } finally {
+    if (wasViewHidden || wasCardHidden) {
+      view.style.position = "";
+      view.style.left = "";
+      view.style.top = "";
+      view.style.width = "";
+      if (wasViewHidden) view.classList.add("hidden");
+      if (wasCardHidden) card.classList.add("hidden");
+    }
   }
-  if (item) {
-    sendWhatsAppReceipt(item);
-  } else {
+}
+
+// Download Active Receipt as clean .pdf file
+async function downloadActiveReceiptPdf(item = null) {
+  if (!item) {
+    const currentReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
+    if (currentReceiptNo) {
+      item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === currentReceiptNo.toUpperCase());
+    }
+    if (!item && collections.length > 0) {
+      item = collections[0];
+    }
+  }
+
+  if (!item) {
     alert("⚠️ अद्याप कोणतीही पावती तयार झालेली नाही!");
+    return;
   }
+
+  if (typeof html2pdf === "undefined") {
+    window.print();
+    return;
+  }
+
+  populateStandaloneReceiptCard(item);
+
+  const card = document.getElementById("standaloneReceiptCard");
+  const view = document.getElementById("standaloneReceiptView");
+  if (!card || !view) return;
+
+  const wasViewHidden = view.classList.contains("hidden");
+  const wasCardHidden = card.classList.contains("hidden");
+
+  if (wasViewHidden || wasCardHidden) {
+    view.style.position = "fixed";
+    view.style.left = "-9999px";
+    view.style.top = "0";
+    view.style.width = "800px";
+    view.classList.remove("hidden");
+    card.classList.remove("hidden");
+  }
+
+  const opt = {
+    margin: [6, 6, 6, 6],
+    filename: `पावती-${item.receiptNo}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    await html2pdf().set(opt).from(card).save();
+  } catch (err) {
+    console.warn("html2pdf save error, fallback to print:", err);
+    window.print();
+  } finally {
+    if (wasViewHidden || wasCardHidden) {
+      view.style.position = "";
+      view.style.left = "";
+      view.style.top = "";
+      view.style.width = "";
+      if (wasViewHidden) view.classList.add("hidden");
+      if (wasCardHidden) card.classList.add("hidden");
+    }
+  }
+}
+
+// Share receipt on WhatsApp (Direct .pdf file share on mobile or auto-download + direct link on web)
+async function shareReceiptPdfOnWhatsApp(item = null) {
+  if (!item) {
+    const currentReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
+    if (currentReceiptNo) {
+      item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === currentReceiptNo.toUpperCase());
+    }
+    if (!item && collections.length > 0) {
+      item = collections[0];
+    }
+  }
+
+  if (!item) {
+    alert("⚠️ अद्याप कोणतीही पावती तयार झालेली नाही!");
+    return;
+  }
+
+  if (!item.phone) {
+    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही!");
+    return;
+  }
+
+  let cleanPhone = item.phone.replace(/[^0-9]/g, "");
+  if (cleanPhone.length === 10) {
+    cleanPhone = "91" + cleanPhone;
+  }
+
+  // 1. Mobile Device: Try Native Document Share (Direct .PDF file attachment into WhatsApp)
+  if (navigator.share && window.File && typeof html2pdf !== "undefined") {
+    try {
+      const pdfBlob = await generateReceiptPdfBlob(item);
+      if (pdfBlob) {
+        const pdfFile = new File([pdfBlob], `पावती-${item.receiptNo}.pdf`, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+          await navigator.share({
+            files: [pdfFile],
+            title: `शिवाजी राजे संघटना - पावती ${item.receiptNo}`,
+            text: `🚩 जय भवानी जय शिवाजी! सस्नेह नमस्कार श्री/श्रीमती ${item.donorName}, आपली ₹${parseFloat(item.amount).toLocaleString("en-IN")}/- ची अधिकृत देणगी पावती PDF सोबत जोडली आहे.`
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      console.log("Web Share API not completed or cancelled:", e);
+    }
+  }
+
+  // 2. Desktop or WhatsApp Web: Auto-download PDF on computer + open WhatsApp chat with direct PDF link
+  try {
+    if (typeof html2pdf !== "undefined") {
+      downloadActiveReceiptPdf(item);
+    }
+  } catch (e) {
+    console.warn("Auto-download notice:", e);
+  }
+
+  const receiptMsg = formatWhatsAppReceipt(item);
+  const encodedMsg = encodeURIComponent(receiptMsg);
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
+
+  window.open(whatsappUrl, "_blank");
+}
+
+function shareWhatsApp() {
+  shareReceiptPdfOnWhatsApp();
+}
+
+function sendWhatsAppReceipt(item) {
+  shareReceiptPdfOnWhatsApp(item);
 }
 
 function formatWhatsAppReceipt(item) {
   const orgName = localStorage.getItem("utsav_org_name") || "शिवाजी राजे संघटना";
   const eventSubtitle = localStorage.getItem("utsav_event_subtitle") || "छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)";
 
-  // WhatsApp only turns HTTP/HTTPS URLs into clickable blue links.
-  // If running locally via file:///, fallback to a valid HTTPS format or configured Live URL.
   let baseUrl = localStorage.getItem("utsav_live_url");
   if (!baseUrl || baseUrl.trim() === "") {
     if (window.location.protocol === "http:" || window.location.protocol === "https:") {
       baseUrl = window.location.href.split("?")[0];
     } else {
-      // Clean HTTPS placeholder when running offline as file:///
       baseUrl = "https://utsav-ledger.vercel.app";
     }
   }
 
-  // Ensure no trailing slash
   baseUrl = baseUrl.replace(/\/+$/, "");
-  const directReceiptLink = `${baseUrl}?receipt=${encodeURIComponent(item.receiptNo)}&amount=${item.amount}`;
+  // Direct PDF download link
+  const directReceiptLink = `${baseUrl}?receipt=${encodeURIComponent(item.receiptNo)}&amount=${item.amount}&download=pdf`;
 
   return `🚩 *जय भवानी | जय शिवाजी* 🚩
 =============================
@@ -736,49 +913,29 @@ function formatWhatsAppReceipt(item) {
 =============================
 
 सस्नेह नमस्कार श्री/श्रीमती *${item.donorName}*,
-उत्सवासाठी आपली वर्गणी यशस्वीरीत्या जमा झाली आहे.
+उत्सवासाठी आपली वर्गणी यशस्वीरीत्या जमा झाली असून अधिकृत पावती PDF स्वरूपात तयार आहे:
 
 📄 *पावती क्र:* ${item.receiptNo}
 📅 *तारीख:* ${item.date}
 🏠 *पत्ता:* ${item.wing || ''}, ${item.society || ''} ${item.flat ? '(फ्लॅट: ' + item.flat + ')' : ''}
-💰 *रक्कम:* ₹${parseFloat(item.amount).toLocaleString("en-IN")}/-
+💰 *रक्कम:* ₹${parseFloat(item.amount).toLocaleString("en-IN")}/- (${formatMarathiCurrencyWords(item.amount)})
 💳 *मोड:* ${item.mode} (${item.status || 'RECEIVED'})${item.transactionRef ? `\n🔢 *बँक UTR क्र:* ${item.transactionRef}` : ''}
 👤 *कार्यकर्ता:* ${item.volunteer || 'अधिकृत कमिटी'}
 
-🔗 *अधिकृत डिजिटल पावती (PDF) पाहण्यासाठी खालील लिंकवर क्लिक करा:*
+📥 *आपली अधिकृत A4 PDF पावती डाउनलोड करण्यासाठी खालील लिंकवर क्लिक करा:*
 
 ${directReceiptLink}
 
-(टीप: वरील लिंकवर क्लिक करून आपण आपली पावती PDF स्वरूपात सेव्ह करू शकता किंवा प्रिंट करू शकता)
+(टीप: वरील लिंकवर क्लिक करताच तुमची अधिकृत PDF पावती थेट उघडेल व आपोआप सेव्ह होईल)
 
 आपल्या सहकार्याबद्दल मनःपूर्वक धन्यवाद! 🙏
 || जय भवानी | जय शिवाजी ||`;
 }
 
-function sendWhatsAppReceipt(item) {
-  if (!item.phone) {
-    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही!");
-    return;
-  }
-
-  // Clean phone number (keep digits only)
-  let cleanPhone = item.phone.replace(/[^0-9]/g, "");
-  if (cleanPhone.length === 10) {
-    cleanPhone = "91" + cleanPhone;
-  }
-
-  const receiptMsg = formatWhatsAppReceipt(item);
-  const encodedMsg = encodeURIComponent(receiptMsg);
-  const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
-
-  // Open WhatsApp in new tab / mobile app
-  window.open(whatsappUrl, "_blank");
-}
-
 function resendWhatsApp(id) {
   const item = collections.find(c => c.id === id);
   if (item) {
-    sendWhatsAppReceipt(item);
+    shareReceiptPdfOnWhatsApp(item);
   }
 }
 
@@ -926,6 +1083,14 @@ async function enterStandaloneReceiptMode(receiptNo) {
   if (item) {
     populateStandaloneReceiptCard(item);
     if (card) card.classList.remove("hidden");
+
+    // Check if auto-download requested via &download=pdf
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("download") === "pdf" || urlParams.get("pdf") === "true") {
+      setTimeout(() => {
+        downloadOrPrintPdfReceipt();
+      }, 700);
+    }
   } else {
     // Check if URL has fallback parameters
     const params = new URLSearchParams(window.location.search);
@@ -947,6 +1112,12 @@ async function enterStandaloneReceiptMode(receiptNo) {
       };
       populateStandaloneReceiptCard(fallbackItem);
       if (card) card.classList.remove("hidden");
+
+      if (params.get("download") === "pdf" || params.get("pdf") === "true") {
+        setTimeout(() => {
+          downloadOrPrintPdfReceipt();
+        }, 700);
+      }
     } else {
       if (errorBox) {
         const errorText = document.getElementById("receiptDocErrorText");
@@ -1031,7 +1202,24 @@ function populateStandaloneReceiptCard(item) {
   }
 }
 
-function downloadOrPrintPdfReceipt() {
+async function downloadOrPrintPdfReceipt() {
+  const card = document.getElementById("standaloneReceiptCard");
+  const no = document.getElementById("receiptDocNo")?.innerText?.trim() || "SJ-2027";
+  if (typeof html2pdf !== "undefined" && card) {
+    const opt = {
+      margin: [6, 6, 6, 6],
+      filename: `पावती-${no}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    try {
+      await html2pdf().set(opt).from(card).save();
+      return;
+    } catch (e) {
+      console.warn("html2pdf save error, falling back to print:", e);
+    }
+  }
   window.print();
 }
 
@@ -1204,8 +1392,8 @@ function renderCollectionsTable(filterQuery = "") {
           💬 WhatsApp
         </button>
         ${verifyActionBtns}
-        <button onclick="deleteCollection('${c.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 px-2 py-1 rounded ml-1" title="नोंद हटवा">
-          ✕
+        <button onclick="deleteCollection('${c.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-1 font-bold shadow-2xs" title="फक्त ऍडमिनसाठी: पावती डिलीट करा">
+          🔒 हटवा
         </button>
       </td>
     `;
@@ -1224,7 +1412,7 @@ function adminVerifyUtr(id) {
   }
 
   item.status = "RECEIVED";
-  saveCollections();
+  saveCollections(item);
   alert(`✓ पावती क्र. ${item.receiptNo} (UTR: ${item.transactionRef}) अधिकृतपणे बँकेत सत्यापित झाली!`);
 }
 
@@ -1240,7 +1428,7 @@ function adminRejectFakeUtr(id) {
 
   if (confirm(`⚠️ सावधान: पावती क्र. ${item.receiptNo} (UTR: ${item.transactionRef}) बनावट म्हणून रद्द करायची आहे का? या पावतीची ₹${item.amount} रक्कम एकूण हिशोबातून वजा होईल.`)) {
     item.status = "CANCELLED_FAKE";
-    saveCollections();
+    saveCollections(item);
     alert(`❌ बनावट UTR रद्द केला गेला! हिशोबातून ₹${item.amount} रक्कम वजा झाली.`);
   }
 }
@@ -1274,7 +1462,9 @@ function renderExpensesTable() {
       <td class="p-2.5 font-bold text-rose-700">₹${e.amount.toLocaleString("en-IN")}</td>
       <td class="p-2.5 whitespace-nowrap">
         ${billBtn}
-        <button onclick="deleteExpense('${e.id}')" class="text-rose-500 hover:text-rose-700 ml-2 font-bold" title="खर्च हटवा">✕</button>
+        <button onclick="deleteExpense('${e.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-2 font-bold shadow-2xs" title="फक्त ऍडमिनसाठी: खर्च नोंद हटवा">
+          🔒 हटवा
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -1537,9 +1727,18 @@ function deleteVolunteer(id) {
   const vol = volunteers.find(v => v.id === id);
   if (!vol) return;
 
-  if (confirm(`तुम्हाला '${vol.name}' या कार्यकर्त्याला यादीतून हटवायचे आहे का?`)) {
+  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nकार्यकर्ता '${vol.name}' यादीतून काढण्यासाठी ऍडमिन पिन प्रविष्ट करा (Default: 1930):`);
+  if (pin === null) return;
+
+  if (pin.trim() !== getAdminPin()) {
+    alert("🚨 अनधिकृत कृती! चुकीचा ऍडमिन पिन. कार्यकर्ता काढण्याची परवानगी फक्त मुख्य ऍडमिनला आहे.");
+    return;
+  }
+
+  if (confirm(`तुम्हाला '${vol.name}' या कार्यकर्त्याला कमिटी यादीतून कायमचे काढायचे आहे का?`)) {
     volunteers = volunteers.filter(v => v.id !== id);
     saveVolunteers();
+    alert(`✓ कार्यकर्ता '${vol.name}' कमिटी यादीतून काढला.`);
   }
 }
 
@@ -1603,24 +1802,66 @@ function saveAdminSettings() {
 // -----------------------------------------------------------------------------
 // 8. DATA DELETION & RESET CONTROLS (ADMIN ONLY)
 // -----------------------------------------------------------------------------
-function deleteCollection(id) {
+async function deleteCollection(id) {
   const item = collections.find(c => c.id === id);
   if (!item) return;
 
-  if (confirm(`पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) डिलीट करायची आहे का?`)) {
+  // STRICT ADMIN / AUTHORIZED VOLUNTEER AUTHENTICATION
+  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nपावती क्र: ${item.receiptNo}\nदेणगीदार: ${item.donorName} (₹${item.amount})\n\nवर्गणी नोंद डिलीट करण्याचा अधिकार फक्त मुख्य ऍडमिनला आहे.\nकृपया ऍडमिन पिन प्रविष्ट करा (Default: 1930):`);
+
+  if (pin === null) return; // Cancelled
+
+  if (pin.trim() !== getAdminPin()) {
+    alert("🚨 अनधिकृत कृती (Access Denied)!\n\nचुकीचा ऍडमिन पिन! सामान्य कार्यकर्त्यांना वर्गणी नोंद डिलीट करण्याची परवानगी नाही.\nफक्त मुख्य ऍडमिन किंवा ऍडमिनने अधिकृत केलेला कार्यकर्ता ही पावती डिलीट करू शकतो.");
+    return;
+  }
+
+  if (confirm(`⚠️ सावधान: पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) कायमस्वरूपी डिलीट करायची आहे का?\n\nया पावतीची रक्कम एकूण जमा हिशोबातून वजा केली जाईल.`)) {
     collections = collections.filter(c => c.id !== id);
+
+    // Sync deletion to Supabase cloud if connected
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from("collections_simple").delete().eq("id", id);
+      } catch (err) {
+        console.warn("Supabase collection delete error:", err);
+      }
+    }
+
     saveCollections();
     updateNextReceiptNumber();
+    alert(`✓ पावती क्र. ${item.receiptNo} यशस्वीरीत्या डिलीट केली गेली.`);
   }
 }
 
-function deleteExpense(id) {
+async function deleteExpense(id) {
   const item = expenses.find(e => e.id === id);
   if (!item) return;
 
-  if (confirm(`खर्च नोंद (${item.vendor} - ₹${item.amount}) डिलीट करायची आहे का?`)) {
+  // STRICT ADMIN / AUTHORIZED VOLUNTEER AUTHENTICATION
+  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nखर्च नोंद: ${item.vendor} (₹${item.amount})\n\nखर्च पावती डिलीट करण्याचा अधिकार फक्त मुख्य ऍडमिनला आहे.\nकृपया ऍडमिन पिन प्रविष्ट करा (Default: 1930):`);
+
+  if (pin === null) return;
+
+  if (pin.trim() !== getAdminPin()) {
+    alert("🚨 अनधिकृत कृती (Access Denied)!\n\nचुकीचा ऍडमिन पिन! सामान्य कार्यकर्त्यांना खर्च नोंद डिलीट करण्याची परवानगी नाही.\nफक्त मुख्य ऍडमिन हा खर्च डिलीट करू शकतात.");
+    return;
+  }
+
+  if (confirm(`⚠️ सावधान: खर्च नोंद (${item.vendor} - ₹${item.amount}) कायमस्वरूपी डिलीट करायची आहे का?`)) {
     expenses = expenses.filter(e => e.id !== id);
+
+    // Sync deletion to Supabase cloud if connected
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from("expenses_simple").delete().eq("id", id);
+      } catch (err) {
+        console.warn("Supabase expense delete error:", err);
+      }
+    }
+
     saveExpenses();
+    alert(`✓ खर्च नोंद यशस्वीरीत्या डिलीट केली गेली.`);
   }
 }
 
