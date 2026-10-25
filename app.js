@@ -1003,30 +1003,29 @@ function shareReceiptPdfOnWhatsApp(item = null) {
   const receiptMsg = formatWhatsAppReceipt(item);
   const encodedMsg = encodeURIComponent(receiptMsg);
 
-  // Detect PC / Laptop vs Mobile phone
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Detect PC / Laptop vs Mobile phone (robust check supporting all mobile browsers & desktop mode)
+  const ua = navigator.userAgent || "";
+  const isTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isMobileUa = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(ua);
+  const isSmallScreen = window.innerWidth <= 1024 || window.screen.width <= 1024;
+  const isMobile = isMobileUa || (isTouchScreen && isSmallScreen);
+
+  const nativeWhatsAppUri = `whatsapp://send?phone=${cleanPhone}&text=${encodedMsg}`;
 
   if (isMobile) {
-    // ON MOBILE PHONES (Android & iOS):
-    // Use the native "whatsapp://send?phone=...&text=..." custom URI.
-    // This immediately launches the operator's WhatsApp app directly to the donor's chat
-    // with the full Marathi receipt pre-typed into the message compose box!
-    const nativeWhatsAppUri = `whatsapp://send?phone=${cleanPhone}&text=${encodedMsg}`;
+    // ON MOBILE PHONES & TABLETS (Android & iOS):
+    // Directly launch the operator's installed WhatsApp / WhatsApp Business app!
+    // Never redirect to web.whatsapp.com or api.whatsapp.com on mobile.
+    window.location.href = nativeWhatsAppUri;
 
-    // Create an invisible anchor tag and trigger click for maximum mobile browser compatibility
+    // Direct anchor click trigger for specialized Android mobile WebViews
     const link = document.createElement("a");
     link.href = nativeWhatsAppUri;
-    link.setAttribute("target", "_top");
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-
-    // Safety fallback: if whatsapp:// is somehow not caught after 1.5 seconds, redirect to web link
     setTimeout(() => {
-      if (document.hasFocus()) {
-        window.location.href = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
-      }
-    }, 1500);
+      try { document.body.removeChild(link); } catch (e) {}
+    }, 500);
   } else {
     // ON PC / LAPTOP:
     // Open web.whatsapp.com directly in a new tab so chat loads automatically
