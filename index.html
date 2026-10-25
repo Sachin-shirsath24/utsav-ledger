@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UtsavLedger | शिवाजी राजे संघटना (19 Feb उत्सव व्यवस्थापन)</title>
-  <!-- Google Fonts: Mukta (Supreme Devanagari & Marathi Typeface) & Yatra One (Authentic Royal Signage) -->
+  <!-- Google Fonts: Mukta (Supreme Devanagari & Marathi Typeface), Poppins (Crisp Numbers & Modern Typography) & Yatra One (Authentic Royal Signage) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700;800&family=Yatra+One&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Yatra+One&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -25,8 +25,9 @@
       theme: {
         extend: {
           fontFamily: {
-            'sans': ['"Mukta"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-            'marathi': ['"Mukta"', 'sans-serif'],
+            'sans': ['"Poppins"', '"Mukta"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            'marathi': ['"Mukta"', '"Poppins"', 'sans-serif'],
+            'receipt': ['"Poppins"', '"Mukta"', 'sans-serif'],
             'royal': ['"Yatra One"', '"Mukta"', 'cursive'],
           },
           colors: {
@@ -100,7 +101,7 @@
         width: 100% !important;
         max-width: 100% !important;
         box-shadow: none !important;
-        border: 2px solid #334155 !important;
+        border: 2px solid #b45309 !important;
         margin: 0 !important;
         padding: 20px !important;
         -webkit-print-color-adjust: exact !important;
@@ -404,65 +405,67 @@
             </div>
           </div>
 
-          <!-- Printable Receipt Card -->
-          <div id="printableReceipt" class="w-full bg-white border-2 border-orange-300 rounded-2xl p-5 shadow-md relative overflow-hidden text-slate-800">
-            <div class="absolute -right-12 -top-12 w-28 h-28 bg-orange-100 rounded-full opacity-50 pointer-events-none"></div>
+          <!-- Printable Receipt Card: Elegant Sanstha Heritage Theme -->
+          <div id="printableReceipt" class="w-full bg-white border-2 border-amber-500 rounded-2xl p-5 shadow-lg relative overflow-hidden text-slate-800 outline outline-2 outline-amber-100 font-sans">
+            <!-- Top Ribbon -->
+            <div class="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-600 text-white py-0.5 px-3 text-center rounded-md font-bold text-[10px] tracking-wider mb-2.5 shadow-2xs">
+              🚩 ॥ जय भवानी । जय शिवाजी ॥ 🚩
+            </div>
             
             <!-- Receipt Header -->
-            <div class="text-center pb-3 border-b-2 border-orange-500">
-              <div class="text-2xl mb-1">🚩</div>
-              <h3 id="receiptOrgTitle" class="text-base font-extrabold text-bhagwa-800 tracking-wide">शिवाजी राजे संघटना</h3>
-              <p id="receiptEventSubtitle" class="text-xs font-bold text-slate-600">छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)</p>
-              <p class="text-[10px] text-slate-400">अधिकृत वर्गणी पावती (Official Receipt)</p>
+            <div class="text-center pb-2.5 border-b-2 border-amber-500/60">
+              <h3 id="receiptOrgTitle" class="text-base font-extrabold text-amber-950 tracking-wide font-royal">शिवाजी राजे संघटना</h3>
+              <p id="receiptEventSubtitle" class="text-xs font-bold text-orange-800">छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)</p>
+              <p class="text-[10px] text-amber-900/70 font-semibold mt-0.5">★ अधिकृत वर्गणी पावती (Official Receipt) ★</p>
             </div>
 
-            <!-- Receipt Meta -->
-            <div class="flex justify-between items-center text-xs py-2 border-b border-slate-100">
+            <!-- Receipt Meta: Prominent Receipt No and Date & Time -->
+            <div class="flex justify-between items-center text-xs py-2 px-2.5 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-50/80 border border-amber-200/80 rounded-lg my-2.5">
               <div>
-                <span class="text-slate-500 text-[11px] block">पावती क्र:</span>
-                <span id="prevReceiptNo" class="font-bold font-mono text-bhagwa-700">SJ-2027-0001</span>
+                <span class="text-slate-500 text-[10px] block font-semibold">पावती क्र:</span>
+                <span id="prevReceiptNo" class="font-extrabold font-mono text-orange-700">SJ-2027-0001</span>
               </div>
               <div class="text-right">
-                <span class="text-slate-500 text-[11px] block">दिनांक व वेळ:</span>
-                <span id="prevDate" class="font-semibold text-slate-800">25-10-2026</span>
+                <span class="text-slate-500 text-[10px] block font-semibold">📅 दिनांक व वेळ:</span>
+                <span id="prevDate" class="font-bold text-slate-900 font-mono text-xs">25-10-2026 | 11:30 PM</span>
               </div>
             </div>
 
             <!-- Receipt Content -->
-            <div class="py-3 space-y-2 text-xs">
+            <div class="py-2.5 space-y-1.5 text-xs border border-amber-100 rounded-lg p-2.5 bg-amber-50/20">
               <div class="flex justify-between">
-                <span class="text-slate-500">देणगीदार:</span>
+                <span class="text-slate-500 font-semibold">देणगीदार:</span>
                 <span id="prevDonorName" class="font-bold text-slate-900">श्री. राहुल पाटील</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-slate-500">पत्ता:</span>
+                <span class="text-slate-500 font-semibold">पत्ता:</span>
                 <span id="prevAddress" class="font-semibold text-slate-700">A Wing, Flat 402</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-slate-500">पेमेंट मोड:</span>
-                <span id="prevPaymentMode" class="font-semibold text-slate-700">CASH (रोख)</span>
+                <span class="text-slate-500 font-semibold">पेमेंट मोड:</span>
+                <span id="prevPaymentMode" class="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">CASH (रोख)</span>
               </div>
               <div class="flex justify-between hidden" id="prevUtrRow">
-                <span class="text-slate-500">बँक UTR क्र:</span>
-                <span id="prevUtr" class="font-bold font-mono text-emerald-700">429182736152</span>
+                <span class="text-slate-500 font-semibold">बँक UTR क्र:</span>
+                <span id="prevUtr" class="font-bold font-mono text-emerald-700 bg-emerald-50 px-1 rounded">429182736152</span>
               </div>
-              <div class="flex justify-between items-center pt-2 border-t border-dashed border-slate-300">
-                <span class="text-sm font-bold text-slate-800">स्वीकारलेली रक्कम:</span>
-                <span id="prevAmount" class="text-lg font-black text-emerald-700">₹500.00</span>
+              <div class="flex justify-between items-center pt-2 border-t border-dashed border-amber-300">
+                <span class="text-xs font-bold text-orange-950">स्वीकारलेली रक्कम:</span>
+                <span id="prevAmount" class="text-xl font-black font-mono text-emerald-800">₹500.00</span>
               </div>
             </div>
 
             <!-- Verification QR & Footer -->
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <div id="receiptQr" class="w-14 h-14 bg-slate-50 border border-slate-200 rounded p-1 flex items-center justify-center"></div>
+            <div class="pt-2.5 border-t border-amber-200 flex items-center justify-between">
+              <div id="receiptQr" class="w-14 h-14 bg-white border border-amber-200 rounded p-1 flex items-center justify-center shadow-2xs"></div>
               <div class="text-right">
                 <p class="text-[10px] text-slate-400">स्वीकारकर्ता (Volunteer)</p>
-                <p id="prevVolunteer" class="text-xs font-bold text-slate-800">स्वयंसेवक 1</p>
+                <p id="prevVolunteer" class="text-xs font-bold text-slate-800">शिरसाठ सचिन</p>
                 <p class="text-[9px] text-emerald-600 font-semibold mt-0.5">✓ डिजिटल स्वाक्षरीकृत</p>
               </div>
             </div>
 
-            <div class="text-center text-[9px] text-slate-400 mt-3 pt-1 border-t border-slate-100">
+            <div class="text-center text-[9px] text-slate-400 mt-2.5 pt-1 border-t border-slate-100">
               || जय भवानी | जय शिवाजी || धन्यवाद!
             </div>
           </div>
@@ -502,6 +505,7 @@
             <thead>
               <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                 <th class="p-3">पावती क्र.</th>
+                <th class="p-3">दिनांक व वेळ</th>
                 <th class="p-3">देणगीदार</th>
                 <th class="p-3">सोसायटी / फ्लॅट</th>
                 <th class="p-3">रक्कम</th>
@@ -1677,9 +1681,13 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="downloadOrPrintPdfReceipt()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2 transition transform active:scale-95">
+        <button onclick="shareReceiptPdfOnWhatsApp()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-1.5 transition transform active:scale-95" title="डोनरच्या WhatsApp वर थेट पावती पाठवा">
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          <span>💬 WhatsApp वर पाठवा</span>
+        </button>
+        <button onclick="downloadOrPrintPdfReceipt()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-1.5 transition transform active:scale-95">
           <i data-lucide="file-down" class="w-4 h-4"></i>
-          <span>📄 PDF डाउनलोड / प्रिंट</span>
+          <span>📄 PDF प्रिंट / सेव्ह</span>
         </button>
         <button onclick="exitReceiptViewToApp()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-300 flex items-center gap-1.5 transition">
           <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
@@ -1707,100 +1715,120 @@
       </button>
     </div>
 
-    <!-- SIMPLE & CLEAN OFFICIAL A4 PRINTABLE RECEIPT CARD -->
-    <div id="standaloneReceiptCard" class="hidden w-full max-w-2xl bg-white rounded-xl shadow-lg p-5 sm:p-7 border-2 border-slate-700 relative text-slate-800 font-sans">
+    <!-- AUTHENTIC & ELEGANT OFFICIAL TRUST DONATION RECEIPT CARD (HERITAGE GOLD / BHAGWA THEME) -->
+    <div id="standaloneReceiptCard" class="hidden w-full max-w-2xl bg-white rounded-2xl shadow-xl p-5 sm:p-8 border-2 border-amber-600 relative overflow-hidden text-slate-800 font-sans outline outline-4 outline-amber-100/80">
       
-      <!-- Receipt Header: Clean & Simple Official Typography -->
-      <div class="text-center pb-2.5 border-b border-slate-300">
-        <div class="text-xs font-bold text-slate-600 tracking-wider">
-          🚩 ॥ जय भवानी । जय शिवाजी ॥ 🚩
-        </div>
-        <h1 id="receiptDocOrgName" class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-wide mt-1">
+      <!-- Top Decorative Heritage Ribbon -->
+      <div class="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-600 text-white py-1.5 px-4 text-center rounded-lg font-bold text-xs tracking-wider shadow-sm flex items-center justify-center gap-2 mb-3">
+        <span>🚩 ॥ जय भवानी । जय शिवाजी ॥ 🚩</span>
+      </div>
+
+      <!-- Receipt Header -->
+      <div class="text-center pb-3 border-b-2 border-amber-500/60 relative">
+        <h1 id="receiptDocOrgName" class="text-2xl sm:text-3xl font-extrabold text-amber-950 tracking-wide font-royal">
           शिवाजी राजे संघटना
         </h1>
-        <p id="receiptDocSubtitle" class="text-xs sm:text-sm font-semibold text-slate-700 mt-0.5">
+        <p id="receiptDocSubtitle" class="text-xs sm:text-sm font-bold text-orange-800 mt-0.5">
           छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)
         </p>
-        <p class="text-[11px] text-slate-500 font-medium mt-0.5">
+        <p class="text-[11px] text-amber-900/70 font-semibold mt-0.5">
           ॥ निश्चयाचा महामेरू । बहुत जनांसी आधारू ॥
         </p>
         
-        <!-- Official Verified Badge -->
-        <div class="mt-2">
-          <span class="inline-block bg-slate-100 border border-slate-300 text-slate-800 px-3.5 py-0.5 rounded-full text-xs font-bold tracking-wide">
-            अधिकृत वर्गणी व देणगी पावती (Official Verified Receipt)
+        <!-- Official Badge -->
+        <div class="mt-2.5">
+          <span class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-300 text-amber-900 px-3.5 py-1 rounded-full text-xs font-extrabold tracking-wide shadow-2xs">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>अधिकृत देणगी पावती (OFFICIAL DONATION RECEIPT)</span>
           </span>
         </div>
       </div>
 
       <!-- Receipt Meta Bar: Receipt No and Date & Time -->
-      <div class="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200 p-2.5 rounded-lg my-3 text-xs sm:text-sm">
-        <div>
+      <div class="grid grid-cols-2 gap-3 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-50/80 border border-amber-200/90 p-3 rounded-xl my-3.5 text-xs sm:text-sm shadow-2xs">
+        <div class="border-r border-amber-200/80 pr-2">
           <span class="text-slate-500 font-semibold block text-[11px]">पावती क्र. (Receipt No):</span>
-          <span id="receiptDocNo" class="font-mono font-bold text-base sm:text-lg text-slate-900">SJ-2027-0001</span>
+          <span id="receiptDocNo" class="font-mono font-extrabold text-base sm:text-lg text-orange-700 tracking-wide">SJ-2027-0001</span>
         </div>
-        <div class="text-right">
-          <span class="text-slate-500 font-semibold block text-[11px]">दिनांक व वेळ (Date & Time):</span>
-          <span id="receiptDocDateTime" class="font-bold text-slate-900">25-10-2026 | 11:30 PM</span>
+        <div class="text-right pl-2">
+          <span class="text-slate-500 font-semibold block text-[11px]">📅 दिनांक व वेळ (Date & Time):</span>
+          <span id="receiptDocDateTime" class="font-bold text-slate-900 block text-xs sm:text-sm font-mono">25-10-2026 | 11:30 PM</span>
           <span id="receiptDocDate" class="hidden">25-10-2026</span>
         </div>
       </div>
 
-      <!-- Donor Details Table: Clean & Structured -->
-      <div class="border border-slate-200 rounded-lg overflow-hidden my-3 text-xs sm:text-sm bg-white">
-        <div class="flex border-b border-slate-200 px-3.5 py-2">
-          <div class="w-1/3 text-slate-500 font-semibold">देणगीदाराचे नाव:</div>
+      <!-- Donor Details Table: Clean, Prestigious & Structured -->
+      <div class="border border-amber-200/80 rounded-xl overflow-hidden my-3 text-xs sm:text-sm bg-white shadow-2xs">
+        <div class="flex border-b border-amber-100 px-3.5 py-2.5 bg-amber-50/30">
+          <div class="w-1/3 text-slate-500 font-semibold flex items-center gap-1.5">
+            <i data-lucide="user" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>देणगीदाराचे नाव:</span>
+          </div>
           <div id="receiptDocDonorName" class="w-2/3 font-bold text-slate-900 text-sm sm:text-base">राहुल रमेश पाटील</div>
         </div>
-        <div class="flex border-b border-slate-200 px-3.5 py-1.5 bg-slate-50/60">
-          <div class="w-1/3 text-slate-500 font-semibold">संपर्क (मोबाईल):</div>
-          <div id="receiptDocPhone" class="w-2/3 font-mono font-semibold text-slate-800">+91 9876543210</div>
+        <div class="flex border-b border-amber-100 px-3.5 py-2">
+          <div class="w-1/3 text-slate-500 font-semibold flex items-center gap-1.5">
+            <i data-lucide="phone" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>संपर्क मोबाईल:</span>
+          </div>
+          <div id="receiptDocPhone" class="w-2/3 font-mono font-bold text-slate-800">+91 9876543210</div>
         </div>
-        <div class="flex border-b border-slate-200 px-3.5 py-1.5">
-          <div class="w-1/3 text-slate-500 font-semibold">पत्ता / सदनिका:</div>
+        <div class="flex border-b border-amber-100 px-3.5 py-2 bg-amber-50/30">
+          <div class="w-1/3 text-slate-500 font-semibold flex items-center gap-1.5">
+            <i data-lucide="home" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>पत्ता / सदनिका:</span>
+          </div>
           <div id="receiptDocAddress" class="w-2/3 font-medium text-slate-800">A Wing, शिवाजी पार्क (फ्लॅट: 101)</div>
         </div>
-        <div class="flex border-b border-slate-200 px-3.5 py-1.5 bg-slate-50/60">
-          <div class="w-1/3 text-slate-500 font-semibold">पेमेंट प्रकार (Mode):</div>
-          <div class="w-2/3 flex items-center gap-2">
-            <span id="receiptDocMode" class="font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 text-xs">CASH (RECEIVED)</span>
-            <span id="receiptDocUtrRow" class="hidden text-xs text-slate-600">बँक UTR: <strong id="receiptDocUtr" class="font-mono text-slate-900"></strong></span>
+        <div class="flex border-b border-amber-100 px-3.5 py-2">
+          <div class="w-1/3 text-slate-500 font-semibold flex items-center gap-1.5">
+            <i data-lucide="credit-card" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>पेमेंट प्रकार (Mode):</span>
+          </div>
+          <div class="w-2/3 flex flex-wrap items-center gap-2">
+            <span id="receiptDocMode" class="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 text-xs shadow-2xs">CASH (RECEIVED)</span>
+            <span id="receiptDocUtrRow" class="hidden text-xs text-slate-600">बँक UTR: <strong id="receiptDocUtr" class="font-mono text-slate-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-300"></strong></span>
           </div>
         </div>
-        <div class="flex px-3.5 py-1.5">
-          <div class="w-1/3 text-slate-500 font-semibold">स्वीकारकर्ता (Volunteer):</div>
-          <div id="receiptDocVolunteer" class="w-2/3 font-medium text-slate-800">आकाश शिंदे</div>
+        <div class="flex px-3.5 py-2 bg-amber-50/30">
+          <div class="w-1/3 text-slate-500 font-semibold flex items-center gap-1.5">
+            <i data-lucide="award" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>स्वीकारकर्ता (Volunteer):</span>
+          </div>
+          <div id="receiptDocVolunteer" class="w-2/3 font-bold text-slate-800">शिरसाठ सचिन</div>
         </div>
       </div>
 
-      <!-- Grand Amount Box: High Contrast, Clean & Clear -->
-      <div class="my-3 border-2 border-slate-700 bg-slate-50 rounded-lg p-3 text-center">
-        <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-          प्राप्त वर्गणी रक्कम (Amount Received)
+      <!-- Grand Amount Box: High Contrast, Prestigious & Clear -->
+      <div class="my-3.5 border-2 border-amber-500 bg-gradient-to-br from-amber-50 via-orange-50/60 to-amber-100/70 rounded-xl p-3.5 text-center shadow-inner">
+        <p class="text-[11px] font-bold text-orange-900 uppercase tracking-wider">
+          प्राप्त वर्गणी / देणगी रक्कम (Amount Received)
         </p>
-        <p id="receiptDocAmount" class="text-3xl sm:text-4xl font-extrabold font-mono text-slate-900 my-0.5">
+        <p id="receiptDocAmount" class="text-3xl sm:text-4xl font-extrabold font-mono text-emerald-800 my-1 drop-shadow-2xs">
           ₹200.00
         </p>
-        <p class="text-xs sm:text-sm font-semibold text-slate-800">
-          अक्षरी: <span id="receiptDocInWords" class="text-slate-900 font-bold underline decoration-slate-400 underline-offset-4">दोनशे रुपये फक्त</span>
-        </p>
+        <div class="mt-1">
+          <span class="inline-block bg-white/95 border border-amber-300 px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold text-slate-800 shadow-2xs">
+            अक्षरी: <span id="receiptDocInWords" class="text-amber-950 font-black underline decoration-amber-400 underline-offset-4">दोनशे रुपये फक्त</span>
+          </span>
+        </div>
       </div>
 
       <!-- Verification Footer & Seal -->
-      <div class="grid grid-cols-3 gap-2 items-center pt-2 pb-1 border-t border-slate-300">
+      <div class="grid grid-cols-3 gap-2 items-center pt-3 pb-2 border-t border-amber-200">
         <!-- Verification QR -->
         <div class="flex flex-col items-center text-center">
-          <div id="receiptDocQrCode" class="p-1 bg-white border border-slate-300 rounded shadow-2xs"></div>
+          <div id="receiptDocQrCode" class="p-1.5 bg-white border border-amber-200 rounded-lg shadow-sm"></div>
           <span class="text-[9px] text-slate-500 font-semibold mt-1">ऑनलाइन पडताळणी QR</span>
         </div>
 
         <!-- Official Seal / Stamp -->
         <div class="flex items-center justify-center">
-          <div class="w-20 h-20 border-2 border-dashed border-red-700 rounded-full flex flex-col items-center justify-center text-center p-1 text-[8px] text-red-900 font-bold leading-tight transform -rotate-3 bg-red-50/50">
+          <div class="w-20 h-20 border-2 border-dashed border-red-700 rounded-full flex flex-col items-center justify-center text-center p-1 text-[8px] text-red-900 font-bold leading-tight transform -rotate-3 bg-red-50/70 shadow-2xs">
             <span class="text-xs">🚩</span>
             <span class="font-extrabold">शिवाजी राजे</span>
             <span>संघटना</span>
-            <span class="text-[7px] text-red-700 font-bold">★ अधिकृत शिक्का ★</span>
+            <span class="text-[7px] text-red-700 font-extrabold">★ अधिकृत शिक्का ★</span>
             <span class="text-[7px]">19 Feb उत्सव</span>
           </div>
         </div>
@@ -1808,7 +1836,7 @@
         <!-- Signature -->
         <div class="text-right">
           <div class="h-10 flex items-end justify-end">
-            <span class="text-[11px] font-mono text-emerald-700 font-bold">✓ Digitally Signed</span>
+            <span class="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✓ Digitally Signed</span>
           </div>
           <p class="text-xs font-bold text-slate-900 border-t border-slate-400 pt-1">अधिकृत खजिनदार / अध्यक्ष</p>
           <p class="text-[10px] text-slate-500 font-medium">शिवाजी राजे संघटना</p>
@@ -1816,8 +1844,8 @@
       </div>
 
       <!-- Legal / Audit Note & Slogan -->
-      <div class="text-center pt-2 border-t border-slate-200">
-        <p class="text-sm font-bold text-slate-800">
+      <div class="text-center pt-2.5 border-t border-amber-200/80">
+        <p class="text-xs sm:text-sm font-bold text-amber-950">
           ॥ जय भवानी । जय शिवाजी ॥
         </p>
         <p class="text-[9px] text-slate-500 mt-0.5">
@@ -1828,10 +1856,14 @@
     </div>
 
     <!-- Bottom Action Button for Mobile Users (Hidden during print) -->
-    <div class="no-print mt-4 flex items-center justify-center gap-3">
-      <button onclick="downloadOrPrintPdfReceipt()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg flex items-center gap-2 transition">
+    <div class="no-print mt-4 flex flex-wrap items-center justify-center gap-2.5">
+      <button onclick="shareReceiptPdfOnWhatsApp()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg flex items-center gap-2 transition transform active:scale-95">
+        <i data-lucide="message-circle" class="w-4 h-4"></i>
+        <span>डोनरला WhatsApp वर पाठवा</span>
+      </button>
+      <button onclick="downloadOrPrintPdfReceipt()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg flex items-center gap-2 transition">
         <i data-lucide="printer" class="w-4 h-4"></i>
-        <span>पावती PDF सेव्ह / प्रिंट करा</span>
+        <span>पावती PDF प्रिंट करा</span>
       </button>
       <button onclick="exitReceiptViewToApp()" class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl border border-slate-300 shadow flex items-center gap-1.5 transition">
         <i data-lucide="home" class="w-3.5 h-3.5"></i>
@@ -1847,6 +1879,6 @@
   </footer>
 
   <!-- App Script with cache-busting -->
-  <script src="app.js?v=2.7"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>

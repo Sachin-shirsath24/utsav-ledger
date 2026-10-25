@@ -121,23 +121,71 @@ function loadOrgBrandSettings() {
 function loadVolunteers() {
   const stored = localStorage.getItem("utsav_volunteers");
   if (stored !== null) {
-    volunteers = JSON.parse(stored);
+    try {
+      volunteers = JSON.parse(stored);
+      if (!Array.isArray(volunteers)) volunteers = [];
+      // Clean out the 3 old dummy demo volunteers (रोहित पाटील, अनिकेत शिंदे, स्वप्नील गायकवाड)
+      volunteers = volunteers.filter(v =>
+        v.id !== "vol-1" &&
+        v.id !== "vol-2" &&
+        v.id !== "vol-3" &&
+        !v.name.includes("रोहित पाटील") &&
+        !v.name.includes("अनिकेत शिंदे") &&
+        !v.name.includes("स्वप्नील गायकवाड")
+      );
+    } catch (e) {
+      volunteers = [];
+    }
   } else {
-    // Default initial committee volunteers
-    volunteers = [
-      { id: "vol-1", name: "रोहित पाटील (कमेटी प्रमुख)", phone: "9822112233", area: "Wing A" },
-      { id: "vol-2", name: "अनिकेत शिंदे (कार्यकर्ता)", phone: "9822445566", area: "Wing B & C" },
-      { id: "vol-3", name: "स्वप्नील गायकवाड (कार्यकर्ता)", phone: "9822778899", area: "Lane 1 & 2" }
-    ];
-    saveVolunteers();
+    volunteers = [];
   }
+
+  // If no volunteers remain or empty, default to the user's authentic volunteer: शिरसाठ सचिन
+  if (volunteers.length === 0) {
+    volunteers = [
+      { id: "vol-sachin", name: "शिरसाठ सचिन", phone: "9822000000", area: "मुख्य कमिटी" }
+    ];
+  }
+
+  saveVolunteers();
 }
 
-function saveVolunteers() {
+function saveVolunteers(volToSync = null) {
   localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
   populateVolunteerDropdown();
   renderAdminVolunteersTable();
   renderPublicVolunteers();
+
+  // Cloud sync to Supabase if connected
+  if (supabaseClient) {
+    if (volToSync) {
+      syncVolunteerToSupabase(volToSync);
+    } else {
+      volunteers.forEach(v => syncVolunteerToSupabase(v));
+    }
+  }
+}
+
+async function syncVolunteerToSupabase(vol) {
+  if (!supabaseClient || !vol) return false;
+  try {
+    const { error } = await supabaseClient.from("volunteers_simple").upsert({
+      id: vol.id,
+      full_name: vol.name,
+      phone: vol.phone || "",
+      area: vol.area || "",
+      photo_url: vol.photoUrl || "",
+      is_active: true
+    }, { onConflict: "id" });
+    if (error) {
+      console.warn("Supabase volunteer sync note:", error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn("Supabase volunteer sync exception:", e);
+    return false;
+  }
 }
 
 function renderPublicVolunteers() {
@@ -838,10 +886,8 @@ async function downloadActiveReceiptPdf(item = null) {
 function getCleanWhatsAppPhone(rawPhone) {
   if (!rawPhone) return "";
   let digits = rawPhone.toString().replace(/[^0-9]/g, "");
-  // If starts with 0 and has 11 digits (e.g. 09822012345), remove leading 0
-  if (digits.length === 11 && digits.startsWith("0")) {
-    digits = digits.substring(1);
-  }
+  // Strip leading zeroes (e.g. 09822..., 0091...)
+  digits = digits.replace(/^0+/, "");
   // If 10 digits (standard Indian mobile number), prepend 91
   if (digits.length === 10) {
     digits = "91" + digits;
@@ -851,18 +897,44 @@ function getCleanWhatsAppPhone(rawPhone) {
 
 // Share receipt directly to WhatsApp with donor's phone number fetched automatically (PC/Laptop + Mobile)
 function shareReceiptPdfOnWhatsApp(item = null) {
+  // 1. Resolve item from parameter or active receipt preview
   if (!item) {
-    const currentReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
-    if (currentReceiptNo) {
-      item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === currentReceiptNo.toUpperCase());
+    const docReceiptNo = document.getElementById("receiptDocNo")?.innerText?.trim();
+    const prevReceiptNo = document.getElementById("prevReceiptNo")?.innerText?.trim();
+    const searchNo = docReceiptNo || prevReceiptNo;
+
+    if (searchNo) {
+      item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === searchNo.toUpperCase());
     }
     if (!item && collections.length > 0) {
       item = collections[0];
     }
   }
 
+  // Fallback: If not found in collections yet, resolve directly from current form inputs
   if (!item) {
-    alert("⚠️ अद्याप कोणतीही पावती तयार झालेली नाही!");
+    const fName = document.getElementById("donorName")?.value?.trim();
+    const fPhone = document.getElementById("donorPhone")?.value?.trim();
+    const fAmt = document.getElementById("donationAmount")?.value?.trim();
+    if (fName && fPhone) {
+      item = {
+        receiptNo: currentReceiptNumber || "SJ-2027-0001",
+        donorName: fName,
+        phone: fPhone,
+        society: document.getElementById("donorSociety")?.value || "",
+        wing: document.getElementById("donorWing")?.value || "",
+        flat: document.getElementById("donorFlat")?.value || "",
+        amount: parseFloat(fAmt || "0"),
+        mode: document.getElementById("paymentMode")?.value || "CASH",
+        status: "RECEIVED",
+        volunteer: document.getElementById("volunteerSelect")?.value || "शिरसाठ सचिन",
+        date: new Date().toISOString().split("T")[0]
+      };
+    }
+  }
+
+  if (!item) {
+    alert("⚠️ अद्याप कोणतीही पावती निवडलेली नाही!");
     return;
   }
 
@@ -870,7 +942,7 @@ function shareReceiptPdfOnWhatsApp(item = null) {
   const cleanPhone = getCleanWhatsAppPhone(rawPhone);
 
   if (!cleanPhone || cleanPhone.length < 10) {
-    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही किंवा चुकीचा आहे!\nकृपया पावती भरताना १०-अंकी वैध मोबाइल नंबर टाका.");
+    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही किंवा चुकीचा आहे!\nकृपया पावतीमध्ये डोनरचा १०-अंकी वैध मोबाइल नंबर टाका.");
     return;
   }
 
@@ -881,28 +953,35 @@ function shareReceiptPdfOnWhatsApp(item = null) {
   // Detect PC / Laptop vs Mobile phone
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  // On PC / Laptop: Use web.whatsapp.com directly to open WhatsApp Web and load donor's chat
-  // On Mobile: Use api.whatsapp.com to launch native WhatsApp application
-  const whatsappUrl = isMobile
-    ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`
-    : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
+  if (isMobile) {
+    // ON MOBILE PHONES (Android & iOS):
+    // Use the native "whatsapp://send?phone=...&text=..." custom URI.
+    // This immediately launches the operator's WhatsApp app directly to the donor's chat
+    // with the full Marathi receipt pre-typed into the message compose box!
+    const nativeWhatsAppUri = `whatsapp://send?phone=${cleanPhone}&text=${encodedMsg}`;
 
-  // IMPORTANT: Open IMMEDIATELY without any await/delay so browser popup blocker NEVER blocks it!
-  const win = window.open(whatsappUrl, "_blank");
-  if (!win || win.closed || typeof win.closed === "undefined") {
-    // If browser strictly blocked popup, redirect active tab directly
-    window.location.href = whatsappUrl;
-  }
+    // Create an invisible anchor tag and trigger click for maximum mobile browser compatibility
+    const link = document.createElement("a");
+    link.href = nativeWhatsAppUri;
+    link.setAttribute("target", "_top");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-  // Auto-download local PDF file after 600ms in background so volunteer also has a copy
-  if (typeof html2pdf !== "undefined") {
+    // Safety fallback: if whatsapp:// is somehow not caught after 1.5 seconds, redirect to web link
     setTimeout(() => {
-      try {
-        downloadActiveReceiptPdf(item);
-      } catch (e) {
-        console.warn("Background PDF download note:", e);
+      if (document.hasFocus()) {
+        window.location.href = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
       }
-    }, 600);
+    }, 1500);
+  } else {
+    // ON PC / LAPTOP:
+    // Open web.whatsapp.com directly in a new tab so chat loads automatically
+    const webWhatsAppUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
+    const win = window.open(webWhatsAppUrl, "_blank");
+    if (!win || win.closed || typeof win.closed === "undefined") {
+      window.location.href = webWhatsAppUrl;
+    }
   }
 }
 
@@ -1429,7 +1508,7 @@ function renderCollectionsTable(filterQuery = "") {
   });
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">कोणतीही नोंद सापडली नाही.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-slate-400">कोणतीही नोंद सापडली नाही.</td></tr>`;
     return;
   }
 
@@ -1455,10 +1534,19 @@ function renderCollectionsTable(filterQuery = "") {
       ? `<span class="block text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 mt-0.5">UTR: ${c.transactionRef}</span>`
       : "";
 
+    const dtStr = formatReceiptDateTime(c) || c.date || "-";
+    const dtParts = dtStr.includes("|") ? dtStr.split("|") : [dtStr, ""];
+    const dPart = dtParts[0]?.trim() || "";
+    const tPart = dtParts[1]?.trim() || "";
+
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
       <td class="p-3 font-mono font-bold text-bhagwa-700">${c.receiptNo}</td>
+      <td class="p-3 text-xs text-slate-700 whitespace-nowrap">
+        <span class="font-bold text-slate-900 block font-mono text-[11px]">${dPart}</span>
+        ${tPart ? `<span class="text-[10px] text-slate-500 font-semibold block">${tPart}</span>` : ''}
+      </td>
       <td class="p-3 font-semibold text-slate-800">${c.donorName}<br><span class="text-[10px] text-slate-400">${c.phone}</span></td>
       <td class="p-3">${c.society} (${c.wing} - ${c.flat})</td>
       <td class="p-3 font-bold ${c.status === 'CANCELLED_FAKE' ? 'line-through text-slate-400' : (c.status === 'PLEDGED' ? 'text-amber-600' : 'text-emerald-700')}">₹${c.amount.toLocaleString("en-IN")}</td>
@@ -1466,8 +1554,8 @@ function renderCollectionsTable(filterQuery = "") {
       <td class="p-3">${statusBadge}</td>
       <td class="p-3 text-slate-500">${c.volunteer}</td>
       <td class="p-3 whitespace-nowrap">
-        <button onclick="viewReceiptDirectly('${c.id}')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded" title="पावती प्रिव्ह्यू">
-          पावती
+        <button onclick="viewReceiptDirectly('${c.id}')" class="text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded font-semibold" title="पावती प्रिव्ह्यू व प्रिंट">
+          📜 पावती
         </button>
         <button onclick="resendWhatsApp('${c.id}')" class="text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded ml-1 font-semibold" title="डोनरला WhatsApp वर पाठवा">
           💬 WhatsApp
@@ -1556,14 +1644,21 @@ function viewReceiptDirectly(id) {
   const item = collections.find(c => c.id === id);
   if (!item) return;
 
-  switchTab("donation");
-  document.getElementById("prevReceiptNo").innerText = item.receiptNo;
-  document.getElementById("prevDonorName").innerText = item.donorName;
-  document.getElementById("prevAddress").innerText = `${item.wing}, ${item.society} (फ्लॅट: ${item.flat})`;
-  document.getElementById("prevPaymentMode").innerText = `${item.mode} (${item.status})`;
-  document.getElementById("prevAmount").innerText = `₹${item.amount.toFixed(2)}`;
-  document.getElementById("prevVolunteer").innerText = item.volunteer;
-  document.getElementById("prevDate").innerText = formatReceiptDateTime(item);
+  // 1. Update preview card in donation tab
+  const prevRecNoEl = document.getElementById("prevReceiptNo");
+  if (prevRecNoEl) prevRecNoEl.innerText = item.receiptNo;
+  const prevDonorEl = document.getElementById("prevDonorName");
+  if (prevDonorEl) prevDonorEl.innerText = item.donorName;
+  const prevAddrEl = document.getElementById("prevAddress");
+  if (prevAddrEl) prevAddrEl.innerText = `${item.wing}, ${item.society} (फ्लॅट: ${item.flat})`;
+  const prevModeEl = document.getElementById("prevPaymentMode");
+  if (prevModeEl) prevModeEl.innerText = `${item.mode} (${item.status})`;
+  const prevAmtEl = document.getElementById("prevAmount");
+  if (prevAmtEl) prevAmtEl.innerText = `₹${item.amount.toFixed(2)}`;
+  const prevVolEl = document.getElementById("prevVolunteer");
+  if (prevVolEl) prevVolEl.innerText = item.volunteer;
+  const prevDateEl = document.getElementById("prevDate");
+  if (prevDateEl) prevDateEl.innerText = formatReceiptDateTime(item);
 
   const utrRow = document.getElementById("prevUtrRow");
   const utrDisplay = document.getElementById("prevUtr");
@@ -1577,12 +1672,17 @@ function viewReceiptDirectly(id) {
   }
 
   const qrBox = document.getElementById("receiptQr");
-  qrBox.innerHTML = "";
-  new QRCode(qrBox, {
-    text: `https://utsav.app/verify?receipt=${item.receiptNo}&amount=${item.amount}`,
-    width: 52,
-    height: 52
-  });
+  if (qrBox) {
+    qrBox.innerHTML = "";
+    new QRCode(qrBox, {
+      text: `https://utsav.app/verify?receipt=${item.receiptNo}&amount=${item.amount}`,
+      width: 52,
+      height: 52
+    });
+  }
+
+  // 2. Open full official standalone receipt view directly for instant preview & PDF/WhatsApp actions
+  openStandaloneReceiptView(item.receiptNo);
 }
 
 function setupInitialQrs() {
@@ -1615,9 +1715,9 @@ function setupInitialQrs() {
 // 6. CSV EXPORT
 // -----------------------------------------------------------------------------
 function exportCollectionsCsv() {
-  let csv = "ReceiptNo,DonorName,Phone,Society,Wing,Flat,Amount,Mode,Status,Volunteer,Date\n";
+  let csv = "ReceiptNo,DateTime,DonorName,Phone,Society,Wing,Flat,Amount,Mode,Status,Volunteer,Date\n";
   collections.forEach(c => {
-    csv += `"${c.receiptNo}","${c.donorName}","${c.phone}","${c.society}","${c.wing}","${c.flat}",${c.amount},"${c.mode}","${c.status}","${c.volunteer}","${c.date}"\n`;
+    csv += `"${c.receiptNo}","${formatReceiptDateTime(c)}","${c.donorName}","${c.phone}","${c.society}","${c.wing}","${c.flat}",${c.amount},"${c.mode}","${c.status}","${c.volunteer}","${c.date}"\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -1790,7 +1890,7 @@ function addNewVolunteer() {
   };
 
   volunteers.push(newVol);
-  saveVolunteers();
+  saveVolunteers(newVol);
 
   document.getElementById("newVolName").value = "";
   document.getElementById("newVolPhone").value = "";
@@ -1819,6 +1919,13 @@ function deleteVolunteer(id) {
   if (confirm(`तुम्हाला '${vol.name}' या कार्यकर्त्याला कमिटी यादीतून कायमचे काढायचे आहे का?`)) {
     volunteers = volunteers.filter(v => v.id !== id);
     saveVolunteers();
+    if (supabaseClient) {
+      try {
+        supabaseClient.from("volunteers_simple").delete().eq("id", id).then();
+      } catch (e) {
+        console.warn("Supabase delete volunteer note:", e);
+      }
+    }
     alert(`✓ कार्यकर्ता '${vol.name}' कमिटी यादीतून काढला.`);
   }
 }
@@ -2121,7 +2228,7 @@ async function syncAllToSupabase() {
     return;
   }
 
-  let colOk = 0, expOk = 0;
+  let colOk = 0, expOk = 0, volOk = 0;
 
   for (const col of collections) {
     const ok = await syncCollectionToSupabase(col);
@@ -2131,8 +2238,12 @@ async function syncAllToSupabase() {
     const ok = await syncExpenseToSupabase(exp);
     if (ok) expOk++;
   }
+  for (const vol of volunteers) {
+    const ok = await syncVolunteerToSupabase(vol);
+    if (ok) volOk++;
+  }
 
-  alert(`✅ Sync पूर्ण!\n✓ ${colOk}/${collections.length} पावत्या cloud वर\n✓ ${expOk}/${expenses.length} खर्चे cloud वर`);
+  alert(`✅ Sync पूर्ण!\n✓ ${colOk}/${collections.length} पावत्या cloud वर\n✓ ${expOk}/${expenses.length} खर्चे cloud वर\n✓ ${volOk}/${volunteers.length} कार्यकर्ते cloud वर`);
 }
 
 // Load data FROM Supabase (for multi-device sync)
@@ -2187,6 +2298,42 @@ async function loadFromSupabase() {
           createdAt: r.created_at
         }));
       localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
+    }
+
+    // Load Volunteers from Supabase (for multi-device sync)
+    try {
+      const { data: volData, error: volErr } = await supabaseClient
+        .from("volunteers_simple")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!volErr && volData && volData.length > 0) {
+        const cloudVols = volData
+          .filter(v =>
+            v.id !== "vol-1" &&
+            v.id !== "vol-2" &&
+            v.id !== "vol-3" &&
+            !v.full_name.includes("रोहित पाटील") &&
+            !v.full_name.includes("अनिकेत शिंदे") &&
+            !v.full_name.includes("स्वप्नील गायकवाड")
+          )
+          .map(v => ({
+            id: v.id,
+            name: v.full_name,
+            phone: v.phone || "",
+            area: v.area || "",
+            photoUrl: v.photo_url || ""
+          }));
+
+        if (cloudVols.length > 0) {
+          volunteers = cloudVols;
+          localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
+          populateVolunteerDropdown();
+          renderAdminVolunteersTable();
+        }
+      }
+    } catch (ve) {
+      console.warn("Supabase volunteer fetch note:", ve);
     }
 
     updateLiveStats();
