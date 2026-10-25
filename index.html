@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="mr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UtsavLedger | शिवाजी राजे संघटना (19 Feb उत्सव व्यवस्थापन)</title>
+  <!-- Google Fonts: Mukta (Supreme Devanagari & Marathi Typeface) & Yatra One (Authentic Royal Signage) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700;800&family=Yatra+One&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'sans': ['"Mukta"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            'marathi': ['"Mukta"', 'sans-serif'],
+            'royal': ['"Yatra One"', '"Mukta"', 'cursive'],
+          },
+          colors: {
+            bhagwa: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              200: '#fed7aa',
+              300: '#fdba74',
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              800: '#9a3412',
+              900: '#7c2d12',
+              950: '#431407',
+            },
+            royalGold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Premium Marathi Typography Standards */
+    body {
+      font-family: 'Mukta', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      letter-spacing: 0.015em;
+      line-height: 1.7;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-royal {
+      font-family: 'Yatra One', 'Mukta', cursive;
+      letter-spacing: 0.03em;
+      line-height: 1.35;
+    }
+    .font-marathi-body {
+      font-family: 'Mukta', sans-serif;
+      line-height: 1.75;
+    }
+    /* Subtle historic textured background */
+    .bg-royal-pattern {
+      background-color: #faf6f0;
+      background-image: radial-gradient(#fdba74 0.7px, transparent 0.7px), radial-gradient(#fdba74 0.7px, #faf6f0 0.7px);
+      background-size: 28px 28px;
+      background-position: 0 0, 14px 14px;
+    }
+  </style>
+  <style>
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printableReceipt, #printableReceipt * {
+        visibility: visible;
+      }
+      #printableReceipt {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 20px;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body class="bg-royal-pattern text-slate-900 min-h-full flex flex-col font-sans antialiased selection:bg-bhagwa-600 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="bg-gradient-to-r from-bhagwa-900 via-bhagwa-700 to-amber-700 text-white shadow-xl sticky top-0 z-40 border-b-2 border-amber-400">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-11 h-11 bg-gradient-to-br from-amber-400 to-orange-500 p-0.5 rounded-2xl shadow-md flex items-center justify-center">
+          <div class="w-full h-full bg-bhagwa-900 rounded-[14px] flex items-center justify-center font-bold text-xl">
+            🚩
+          </div>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-2xl font-black font-royal tracking-wide flex items-center gap-2">
+            <span id="headerOrgName" class="text-amber-100">शिवाजी राजे संघटना</span>
+            <span id="headerEventBadge" class="text-[11px] bg-amber-400/25 text-amber-200 border border-amber-400/40 font-bold px-2.5 py-0.5 rounded-full shadow-xs">19 Feb उत्सव</span>
+          </h1>
+          <p id="headerSubTitle" class="text-xs text-orange-200 font-medium">॥ निश्चयाचा महामेरू । बहुत जनांसी आधारू ॥</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button onclick="openDirectUpiModal()" class="bg-amber-500 hover:bg-amber-400 text-amber-950 font-extrabold text-xs px-3 py-1.5 rounded-lg shadow border border-amber-300 flex items-center gap-1.5 transition animate-pulse" title="थेट ऑनलाइन UPI ने वर्गणी पाठवा">
+          <i data-lucide="qr-code" class="w-4 h-4"></i>
+          <span>ऑनलाइन QR</span>
+        </button>
+        <button onclick="switchTab('public')" class="bg-white/20 hover:bg-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-white/30 flex items-center gap-1.5 transition">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">पब्लिक बोर्ड</span>
+        </button>
+        <button onclick="promptAdminPin()" class="bg-black/25 hover:bg-black/40 text-white px-2.5 py-1.5 rounded-lg border border-white/20 transition flex items-center gap-1.5 text-xs font-semibold" title="फक्त ऍडमिनसाठी (Admin Only)">
+          <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span class="hidden sm:inline">ऍडमिन</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="bg-bhagwa-800/80 backdrop-blur border-t border-orange-500/40">
+      <div class="max-w-6xl mx-auto px-2 flex overflow-x-auto no-scrollbar">
+        <button onclick="switchTab('donation')" id="tab-donation" class="tab-btn px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-white text-white flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="file-plus" class="w-4 h-4"></i> पावती फाडा
+        </button>
+        <button onclick="switchTab('collections')" id="tab-collections" class="tab-btn px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-orange-200 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="list-checks" class="w-4 h-4"></i> वर्गणी रजिस्टर
+        </button>
+        <button onclick="switchTab('expenses')" id="tab-expenses" class="tab-btn px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-orange-200 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="receipt" class="w-4 h-4"></i> खर्च व बिल नोंदणी
+        </button>
+        <button onclick="switchTab('public')" id="tab-public" class="tab-btn px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-orange-200 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="pie-chart" class="w-4 h-4"></i> पारदर्शकता डॅशबोर्ड
+        </button>
+        <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-orange-200 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="shield" class="w-4 h-4 text-amber-300"></i> मराठा साम्राज्य इतिहास
+        </button>
+        <button onclick="switchTab('gallery')" id="tab-gallery" class="tab-btn px-3.5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-orange-200 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="image" class="w-4 h-4 text-amber-300"></i> उत्सव गॅलरी
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- LIVE SUMMARY CARDS -->
+  <section class="max-w-6xl mx-auto px-4 mt-5 w-full">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-orange-100 text-bhagwa-600 flex items-center justify-center font-bold">
+          <i data-lucide="target" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 font-medium">टार्गेट बजेट</p>
+          <p id="statTarget" class="text-lg font-bold text-slate-800">₹2,00,000</p>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+          <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 font-medium">एकूण जमा वर्गणी</p>
+          <p id="statCollected" class="text-lg font-bold text-emerald-600">₹0</p>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+          <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 font-medium">एकूण खर्च</p>
+          <p id="statSpent" class="text-lg font-bold text-rose-600">₹0</p>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+          <i data-lucide="wallet" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 font-medium">शिल्लक रक्कम (Balance)</p>
+          <p id="statBalance" class="text-lg font-bold text-amber-700">₹0</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT TABS CONTAINER -->
+  <main class="max-w-6xl mx-auto px-4 py-5 w-full flex-1">
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: NEW DONATION RECEIPT GENERATOR -->
+    <!-- ======================================================== -->
+    <div id="view-donation" class="tab-view block">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Form Column -->
+        <div class="lg:col-span-7 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+            <div>
+              <h2 class="text-base sm:text-xl font-black font-royal text-slate-900 flex items-center gap-2">
+                <i data-lucide="file-text" class="w-5 h-5 text-bhagwa-600"></i>
+                नवीन वर्गणी पावती (Door-to-Door Collection)
+              </h2>
+              <p class="text-xs text-slate-500">पावती भरताच डोनरला डिजिटल पावती तयार होईल</p>
+            </div>
+            <span class="text-xs font-mono bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-semibold" id="autoReceiptNo">
+              Receipt: Auto
+            </span>
+          </div>
+
+          <form id="donationForm" onsubmit="handleDonationSubmit(event)" class="space-y-4">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">देणगीदाराचे नाव (Donor Full Name) *</label>
+                <input type="text" id="donorName" required placeholder="उदा. राहुल रमेश पाटील" class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">मोबाइल नंबर (WhatsApp Receipt) *</label>
+                <input type="tel" id="donorPhone" required placeholder="उदा. 9876543210" pattern="[0-9]{10}" class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">सोसायटी / गल्ली *</label>
+                <input type="text" id="donorSociety" required placeholder="उदा. शिवाजी पार्क" class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">विंग (Wing)</label>
+                <select id="donorWing" class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+                  <option value="A Wing">A Wing</option>
+                  <option value="B Wing">B Wing</option>
+                  <option value="C Wing">C Wing</option>
+                  <option value="D Wing">D Wing</option>
+                  <option value="Lane 1">Lane 1</option>
+                  <option value="Lane 2">Lane 2</option>
+                  <option value="Other">इतर</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">फ्लॅट / घर क्र. *</label>
+                <input type="text" id="donorFlat" required placeholder="उदा. 402" class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">वर्गणी रक्कम (Amount in ₹) *</label>
+                <div class="relative">
+                  <span class="absolute left-3.5 top-2.5 text-slate-500 font-bold">₹</span>
+                  <input type="number" id="donationAmount" required min="1" step="1" placeholder="हवी ती रक्कम टाका (उदा. 500)" class="w-full text-sm pl-8 pr-3.5 py-2.5 border border-slate-300 rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+                </div>
+                <!-- Quick Amount Suggestion Chips -->
+                <div class="flex items-center gap-1 mt-1.5 flex-wrap">
+                  <span class="text-[10px] text-slate-400 font-semibold mr-0.5">जलद निवडा:</span>
+                  <button type="button" onclick="setQuickDonationAmt(100)" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-bhagwa-800 border border-slate-200">₹100</button>
+                  <button type="button" onclick="setQuickDonationAmt(250)" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-bhagwa-800 border border-slate-200">₹250</button>
+                  <button type="button" onclick="setQuickDonationAmt(500)" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-bhagwa-800 border border-slate-200">₹500</button>
+                  <button type="button" onclick="setQuickDonationAmt(1000)" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-bhagwa-800 border border-slate-200">₹1,000</button>
+                  <button type="button" onclick="setQuickDonationAmt(2100)" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-bhagwa-800 border border-slate-200">₹2,100</button>
+                  <button type="button" onclick="setQuickDonationAmt(5000)" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-bhagwa-800 border border-slate-200">₹5,000</button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">पेमेंट मोड निवडा (Select Payment Mode) *</label>
+                <input type="hidden" id="paymentMode" value="CASH">
+                <div class="grid grid-cols-3 gap-1.5">
+                  <button type="button" onclick="setPaymentMode('CASH')" id="btn-mode-cash" class="py-2 px-1 text-xs font-bold rounded-lg border-2 border-bhagwa-600 bg-orange-50 text-bhagwa-800 transition text-center shadow-xs">
+                    💵 रोख (Cash)
+                  </button>
+                  <button type="button" onclick="setPaymentMode('UPI')" id="btn-mode-upi" class="py-2 px-1 text-xs font-bold rounded-lg border-2 border-slate-200 bg-white text-slate-700 hover:border-amber-400 transition text-center shadow-xs">
+                    📱 ऑनलाइन UPI
+                  </button>
+                  <button type="button" onclick="setPaymentMode('PLEDGE')" id="btn-mode-pledge" class="py-2 px-1 text-xs font-bold rounded-lg border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition text-center shadow-xs">
+                    ⏳ नंतर देणार
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div id="upiSection" class="hidden p-4 bg-amber-50 rounded-2xl border-2 border-amber-400 shadow-sm space-y-3">
+              <div class="flex items-center justify-between pb-2 border-b border-amber-200">
+                <span class="text-xs text-amber-950 font-bold flex items-center gap-1.5">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+                  अधिकृत संघटना बँक खाते (Official Locked Account)
+                </span>
+                <span class="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  ✓ लॉक व सत्यापित
+                </span>
+              </div>
+              
+              <div class="flex flex-col sm:flex-row items-center gap-4">
+                <!-- Large, Clear QR Container -->
+                <div class="flex flex-col items-center">
+                  <div id="liveUpiQr" class="bg-white p-2.5 rounded-xl border-2 border-amber-500 shadow-md w-36 h-36 flex items-center justify-center">
+                    <!-- QR is drawn here -->
+                  </div>
+                  <span class="text-[10px] text-amber-900 font-bold mt-1.5">PhonePe / GPay ने स्कॅन करा</span>
+                </div>
+
+                <div class="flex-1 w-full space-y-2.5">
+                  <div class="bg-white p-2.5 rounded-xl border border-amber-200 text-xs">
+                    <p class="text-slate-400 text-[10px] font-bold">पैसे थेट या अधिकृत खात्यात जमा होतील:</p>
+                    <p id="displayLockedUpiId" class="font-mono font-black text-slate-900 text-sm">shivajiraje@upi</p>
+                    <p id="displayLockedUpiName" class="text-xs font-bold text-bhagwa-700">शिवाजी राजे संघटना</p>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="block text-xs font-bold text-slate-800">
+                        पेमेंट सक्सेस झाल्यावर 12-अंकी UTR नंबर टाका *
+                      </label>
+                      <span id="utrStatusBadge" class="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                        0/12 अंक आवश्यक
+                      </span>
+                    </div>
+                    <input type="text" id="transactionRef" maxlength="12" oninput="validateUtrLive(this.value)" placeholder="उदा. 429182736152" class="w-full text-xs px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500 font-mono font-bold tracking-widest text-slate-900 bg-white shadow-inner">
+                    <p id="utrFeedbackMsg" class="text-[10px] text-amber-900 font-medium mt-1">
+                      🔒 सुरक्षा नियम: डोनरचे पेमेंट यशस्वी होऊन 12-अंकी UTR टाकल्याशिवाय पावती जनरेट होणार नाही आणि रजिस्टरमध्ये नाव जोडले जाणार नाही.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <p class="text-[10px] text-amber-900 font-medium bg-amber-100/70 p-1.5 rounded-lg text-center">
+                🔒 सुरक्षितता: हा QR कोड फक्त मुख्य ऍडमिनच्या बँक खात्याचा आहे. कार्यकर्ता हा QR बदलू शकत नाही.
+              </p>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-semibold text-slate-700">जमा करणारा अधिकृत कार्यकर्ता (Select Volunteer) *</label>
+                <span class="text-[10px] text-bhagwa-700 font-semibold cursor-pointer" onclick="promptAdminPin()">+ कार्यकर्ता जोडा (Admin)</span>
+              </div>
+              <select id="volunteerSelect" required class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500 bg-white">
+                <!-- Dynamically populated from active volunteers -->
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2 p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
+              <input type="checkbox" id="autoWhatsAppCheck" checked class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+              <label for="autoWhatsAppCheck" class="text-xs font-semibold text-emerald-900 cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600"></i>
+                पावती तयार होताच डोनरच्या WhatsApp वर थेट पाठवा (Direct WhatsApp Receipt)
+              </label>
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" class="w-full bg-gradient-to-r from-bhagwa-600 to-amber-600 hover:from-bhagwa-700 hover:to-amber-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 transition">
+                <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                पावती तयार करा व WhatsApp वर पाठवा (Save & Send Receipt)
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Live Receipt Preview Column -->
+        <div class="lg:col-span-5 flex flex-col items-center">
+          <div class="w-full flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">डिजिटल पावती प्रिव्ह्यू (Live Preview)</span>
+            <div class="flex gap-1.5">
+              <button onclick="copyOnlyReceiptLink()" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-md font-semibold flex items-center gap-1" title="फक्त पावतीची लिंक कॉपी करा">
+                <i data-lucide="copy" class="w-3 h-3"></i> लिंक कॉपी
+              </button>
+              <button onclick="window.print()" class="text-xs bg-slate-200 hover:bg-slate-300 px-2.5 py-1 rounded-md font-semibold text-slate-700 flex items-center gap-1">
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i> प्रिंट
+              </button>
+              <button onclick="shareWhatsApp()" class="text-xs bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-md font-semibold text-white flex items-center gap-1">
+                <i data-lucide="share-2" class="w-3.5 h-3.5"></i> WhatsApp
+              </button>
+            </div>
+          </div>
+
+          <!-- Printable Receipt Card -->
+          <div id="printableReceipt" class="w-full bg-white border-2 border-orange-300 rounded-2xl p-5 shadow-md relative overflow-hidden text-slate-800">
+            <div class="absolute -right-12 -top-12 w-28 h-28 bg-orange-100 rounded-full opacity-50 pointer-events-none"></div>
+            
+            <!-- Receipt Header -->
+            <div class="text-center pb-3 border-b-2 border-orange-500">
+              <div class="text-2xl mb-1">🚩</div>
+              <h3 id="receiptOrgTitle" class="text-base font-extrabold text-bhagwa-800 tracking-wide">शिवाजी राजे संघटना</h3>
+              <p id="receiptEventSubtitle" class="text-xs font-bold text-slate-600">छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)</p>
+              <p class="text-[10px] text-slate-400">अधिकृत वर्गणी पावती (Official Receipt)</p>
+            </div>
+
+            <!-- Receipt Meta -->
+            <div class="flex justify-between items-center text-xs py-2 border-b border-slate-100">
+              <div>
+                <span class="text-slate-500">पावती क्र:</span>
+                <span id="prevReceiptNo" class="font-bold font-mono text-bhagwa-700">SJ-2027-0001</span>
+              </div>
+              <div>
+                <span class="text-slate-500">दिनांक:</span>
+                <span id="prevDate" class="font-semibold text-slate-700">25-10-2026</span>
+              </div>
+            </div>
+
+            <!-- Receipt Content -->
+            <div class="py-3 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-500">देणगीदार:</span>
+                <span id="prevDonorName" class="font-bold text-slate-900">श्री. राहुल पाटील</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">पत्ता:</span>
+                <span id="prevAddress" class="font-semibold text-slate-700">A Wing, Flat 402</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">पेमेंट मोड:</span>
+                <span id="prevPaymentMode" class="font-semibold text-slate-700">CASH (रोख)</span>
+              </div>
+              <div class="flex justify-between hidden" id="prevUtrRow">
+                <span class="text-slate-500">बँक UTR क्र:</span>
+                <span id="prevUtr" class="font-bold font-mono text-emerald-700">429182736152</span>
+              </div>
+              <div class="flex justify-between items-center pt-2 border-t border-dashed border-slate-300">
+                <span class="text-sm font-bold text-slate-800">स्वीकारलेली रक्कम:</span>
+                <span id="prevAmount" class="text-lg font-black text-emerald-700">₹500.00</span>
+              </div>
+            </div>
+
+            <!-- Verification QR & Footer -->
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <div id="receiptQr" class="w-14 h-14 bg-slate-50 border border-slate-200 rounded p-1 flex items-center justify-center"></div>
+              <div class="text-right">
+                <p class="text-[10px] text-slate-400">स्वीकारकर्ता (Volunteer)</p>
+                <p id="prevVolunteer" class="text-xs font-bold text-slate-800">स्वयंसेवक 1</p>
+                <p class="text-[9px] text-emerald-600 font-semibold mt-0.5">✓ डिजिटल स्वाक्षरीकृत</p>
+              </div>
+            </div>
+
+            <div class="text-center text-[9px] text-slate-400 mt-3 pt-1 border-t border-slate-100">
+              || जय भवानी | जय शिवाजी || धन्यवाद!
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: COLLECTIONS REGISTER (वर्गणी रजिस्टर) -->
+    <!-- ======================================================== -->
+    <div id="view-collections" class="tab-view hidden">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="table" class="w-5 h-5 text-bhagwa-600"></i>
+              सर्व वर्गणी नोंदी (Collection Register)
+            </h2>
+            <p class="text-xs text-slate-500">जमा झालेल्या सर्व पावत्या आणि पेंडिंग नोंदींची यादी</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="searchCollection" oninput="filterCollections()" placeholder="नाव / पावती / फ्लॅट शोधा..." class="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+            <button onclick="exportCollectionsCsv()" class="text-xs bg-slate-100 hover:bg-slate-200 font-semibold px-3 py-2 rounded-lg text-slate-700 flex items-center gap-1">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto mt-4">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                <th class="p-3">पावती क्र.</th>
+                <th class="p-3">देणगीदार</th>
+                <th class="p-3">सोसायटी / फ्लॅट</th>
+                <th class="p-3">रक्कम</th>
+                <th class="p-3">मोड</th>
+                <th class="p-3">स्थिती</th>
+                <th class="p-3">कार्यकर्ता</th>
+                <th class="p-3">कृती</th>
+              </tr>
+            </thead>
+            <tbody id="collectionTableBody" class="divide-y divide-slate-100 text-slate-700">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: EXPENSE & BILL VOUCHER VAULT (खर्च नोंदणी) -->
+    <!-- ======================================================== -->
+    <div id="view-expenses" class="tab-view hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Add Expense Form -->
+        <div class="lg:col-span-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-2 pb-3 border-b border-slate-100 mb-4">
+            <i data-lucide="receipt-text" class="w-5 h-5 text-rose-600"></i>
+            नवीन खर्चाची नोंद (Add Expense Voucher)
+          </h2>
+
+          <form id="expenseForm" onsubmit="handleExpenseSubmit(event)" class="space-y-3.5 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">खर्च वर्गवारी (Category) *</label>
+              <select id="expenseCategory" required class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+                <option value="Mandap & Stage">मंडप व स्टेज व्यवस्था (Mandap & Stage)</option>
+                <option value="Sound & DJ System">साउंड व DJ सिस्टीम (Sound & DJ)</option>
+                <option value="Prasad & Annadanam">प्रसाद व अन्नदान (Food/Prasad)</option>
+                <option value="Decoration & Lighting">रोषणाई व सजावट (Lighting/Deco)</option>
+                <option value="Statue & Pujan Items">मूर्ती पूजन व साहित्य (Puja items)</option>
+                <option value="Police & Govt Permissions">परवानग्या व शासकीय शुल्क (Permits)</option>
+                <option value="Cultural & Powada">शाहिरी, पोवाडा व वाद्य (Cultural/Dhol)</option>
+                <option value="Miscellaneous">इतर किरकोळ खर्च (Miscellaneous)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">दुकानदार / वेंडर नाव (Vendor Name) *</label>
+              <input type="text" id="expenseVendor" required placeholder="उदा. ओंकार मंडप डेकोरेटर्स" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">खर्च रक्कम (Amount in ₹) *</label>
+                <input type="number" id="expenseAmount" required min="10" placeholder="5000" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-bold text-rose-700 focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">बिल तारीख *</label>
+                <input type="date" id="expenseDate" required class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">बिल / पावती फोटो अपलोड (Upload Bill Photo) *</label>
+              <input type="file" id="expenseBillFile" accept="image/*" onchange="previewBillImage(event)" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-bhagwa-700 hover:file:bg-orange-100">
+              <div id="billPreviewContainer" class="hidden mt-2 border rounded-lg p-2 bg-slate-50 flex items-center justify-between">
+                <img id="billPreviewImg" src="" alt="Bill Preview" class="h-16 w-16 object-cover rounded border">
+                <span class="text-[10px] text-emerald-600 font-semibold">✓ बिल फोटो संलग्न</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">खर्चाचा तपशील (Description)</label>
+              <textarea id="expenseDesc" rows="2" placeholder="खर्चाबाबत अधिक माहिती..." class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500"></textarea>
+            </div>
+
+            <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i> खर्च जतन करा
+            </button>
+          </form>
+        </div>
+
+        <!-- Expenses List & Breakdown -->
+        <div class="lg:col-span-7 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-base font-bold text-slate-800">खर्च ऑडिट यादी (Audited Expenses)</h2>
+            <span class="text-xs font-bold text-rose-600" id="expenseCountText">0 नोंदी</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="p-2.5">तारीख</th>
+                  <th class="p-2.5">वर्गवारी</th>
+                  <th class="p-2.5">वेंडर नाव</th>
+                  <th class="p-2.5">रक्कम</th>
+                  <th class="p-2.5">बिल प्रूफ</th>
+                </tr>
+              </thead>
+              <tbody id="expenseTableBody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: PUBLIC TRANSPARENCY DASHBOARD (सोसायटी बोर्ड) -->
+    <!-- ======================================================== -->
+    <div id="view-public" class="tab-view hidden">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center max-w-3xl mx-auto">
+        <div class="inline-block p-2 bg-orange-100 text-bhagwa-700 rounded-full text-xl mb-2">🚩</div>
+        <h2 class="text-xl font-extrabold text-slate-800">शिवाजी राजे संघटना - सार्वजनिक पारदर्शकता बोर्ड</h2>
+        <p class="text-xs text-slate-500 mt-1">सर्व सोसायटी सदस्यांसाठी खुला हिशोब (Open Financial Audit)</p>
+
+        <!-- Progress Bar -->
+        <div class="mt-6 text-left">
+          <div class="flex justify-between text-xs font-bold mb-1">
+            <span class="text-slate-600">वर्गणी प्रगती (Collection Progress)</span>
+            <span id="publicProgressPct" class="text-bhagwa-700">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden border border-slate-200">
+            <div id="publicProgressBar" class="bg-gradient-to-r from-bhagwa-500 to-emerald-500 h-full w-0 transition-all duration-500"></div>
+          </div>
+        </div>
+
+        <!-- Big 3 Stat Boxes -->
+        <div class="grid grid-cols-3 gap-3 mt-6 text-left">
+          <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <p class="text-[11px] font-semibold text-emerald-800">एकूण जमा</p>
+            <p id="pubStatCollected" class="text-base sm:text-xl font-black text-emerald-700">₹0</p>
+          </div>
+          <div class="p-4 bg-rose-50 border border-rose-200 rounded-xl">
+            <p class="text-[11px] font-semibold text-rose-800">एकूण खर्च</p>
+            <p id="pubStatSpent" class="text-base sm:text-xl font-black text-rose-700">₹0</p>
+          </div>
+          <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <p class="text-[11px] font-semibold text-amber-800">शिल्लक रक्कम</p>
+            <p id="pubStatBalance" class="text-base sm:text-xl font-black text-amber-700">₹0</p>
+          </div>
+        </div>
+
+        <!-- Direct Online Donate Banner on Public Board -->
+        <div class="mt-6 p-4 bg-gradient-to-r from-amber-500 via-bhagwa-600 to-orange-600 rounded-2xl text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+          <div>
+            <h4 class="text-sm font-black flex items-center gap-2">
+              <i data-lucide="qr-code" class="w-5 h-5 text-amber-200"></i> थेट ऑनलाइन वर्गणी पाठवा (Direct UPI Donation)
+            </h4>
+            <p class="text-xs text-orange-100 mt-0.5">शिवाजी राजे संघटनेच्या अधिकृत बँक खात्यात PhonePe किंवा Google Pay ने थेट वर्गणी पाठवा.</p>
+          </div>
+          <button onclick="openDirectUpiModal()" class="px-4 py-2.5 bg-white text-bhagwa-800 font-black rounded-xl text-xs hover:bg-orange-50 shadow transition whitespace-nowrap flex items-center gap-1.5">
+            <i data-lucide="scan" class="w-4 h-4 text-bhagwa-600"></i> QR कोड स्कॅन करा
+          </button>
+        </div>
+
+        <!-- VOLUNTEERS COMMITTEE & WORK PROGRESS BOARD -->
+        <div class="mt-8 text-left bg-slate-50/70 p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                <i data-lucide="users" class="w-5 h-5 text-bhagwa-600"></i>
+                अधिकृत उत्सव समिती व कार्यकर्ते (Active Volunteers Team)
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">परिसर संपर्क, पावत्या संख्या आणि जमा वर्गणी हिशोब</p>
+            </div>
+            <span id="publicVolTotalCount" class="text-xs font-bold bg-orange-100 text-bhagwa-800 px-3 py-1 rounded-full border border-orange-200">
+              0 कार्यकर्ते
+            </span>
+          </div>
+
+          <div id="publicVolunteerGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            <!-- Dynamically populated via JS -->
+          </div>
+        </div>
+
+        <!-- Notice Board QR Code Download -->
+        <div class="mt-8 p-5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="text-left">
+            <h4 class="text-sm font-bold text-slate-800">सोसायटी नोटीस बोर्ड QR कोड</h4>
+            <p class="text-xs text-slate-500 mt-0.5">हा QR कोड प्रिंट करून नोटीस बोर्डावर लावा, जेणेकरून कोणालाही मोबाईलवर थेट हिशोब दिसेल.</p>
+          </div>
+          <div id="noticeBoardQr" class="w-24 h-24 bg-white p-2 border rounded-xl shadow-sm"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 5: MARATHA EMPIRE HISTORY (मराठा साम्राज्य इतिहास) -->
+    <!-- ======================================================== -->
+    <div id="view-history" class="tab-view hidden space-y-8 font-sans">
+      
+      <!-- Royal Hero Banner with Authentic Portraits -->
+      <div class="relative bg-gradient-to-r from-bhagwa-950 via-bhagwa-900 to-amber-950 rounded-3xl p-6 sm:p-10 text-white shadow-2xl overflow-hidden border-2 border-amber-500/40">
+        <div class="absolute -right-8 -bottom-10 opacity-10 text-9xl sm:text-[13rem] select-none pointer-events-none font-royal">🚩</div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
+          <div class="lg:col-span-8">
+            <div class="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/40 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-200 mb-4 shadow-xs">
+              <span>🚩 अखंड हिंदवी स्वराज्य संस्थापक</span>
+              <span>•</span>
+              <span>19 फेब्रुवारी शिवजयंती</span>
+            </div>
+            
+            <h2 class="text-2xl sm:text-4xl font-extrabold font-royal tracking-wide text-amber-100 leading-tight">
+              छत्रपती शिवाजी महाराज व अखंड मराठा साम्राज्य
+            </h2>
+            
+            <p class="text-sm sm:text-base text-orange-200 mt-3 font-marathi-body leading-relaxed max-w-2xl">
+              "निश्चयाचा महामेरू। बहुत जनांसी आधारू। अखंड स्थितीचा निर्धारू। श्रीमंत योगी॥"
+              रयतेचे कल्याणकारी राज्य, अभेद्य ३५०+ दुर्ग, अजिंक्य आरमार, गनिमी कावा आणि मराठ्यांच्या असीम पराक्रमाची अस्सल ऐतिहासिक गाथा.
+            </p>
+
+            <div class="mt-5 p-4 bg-black/40 backdrop-blur-md rounded-2xl border border-amber-400/30 max-w-2xl">
+              <p class="text-sm sm:text-base font-bold text-amber-300 font-royal tracking-wider">
+                "प्रतिपच्चंद्रलेखेव वर्धिष्णुर्विश्ववंदिता शाहसूनोः शिवस्यैषा मुद्रा भद्राय राजते।"
+              </p>
+              <p class="text-xs text-orange-200/90 mt-1 leading-normal">
+                <strong>अर्थ:</strong> प्रतिपदेच्या चंद्रकलेप्रमाणे दिवसेंदिवस वृद्धिंगत होणारी आणि अवघ्या विश्वाला वंदनीय ठरणारी, शहाजीपुत्र छत्रपती शिवाजी महाराजांची ही राजमुद्रा लोककल्याणासाठी अधिराज्य गाजवत आहे.
+              </p>
+            </div>
+          </div>
+
+          <!-- Historic Portrait of Chhatrapati Shivaji Maharaj -->
+          <div class="lg:col-span-4 flex justify-center">
+            <div class="relative group">
+              <div class="absolute -inset-1 bg-gradient-to-r from-amber-400 to-bhagwa-500 rounded-3xl blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
+              <div class="relative bg-bhagwa-950 rounded-2xl p-2 border-2 border-amber-400/80 shadow-2xl">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/40/Chhatrapati_Shivaji_Maharaj.jpg" 
+                     alt="छत्रपती शिवाजी महाराज ऐतिहासिक मूळ चित्र" 
+                     class="w-52 sm:w-60 h-64 sm:h-72 object-cover rounded-xl shadow-inner"
+                     onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Shivaji_British_Museum.jpg'">
+                <p class="text-center text-[11px] text-amber-300 font-bold mt-2 tracking-wide font-royal">
+                  🚩 छत्रपती शिवाजी महाराज (१६३० - १६८०)
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Timeline & Milestones Counters -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div class="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-sm text-center hover:border-bhagwa-500 transition">
+          <span class="text-3xl">🚩</span>
+          <h4 class="text-lg sm:text-xl font-black font-royal text-bhagwa-800 mt-1">१९ फेब १६३०</h4>
+          <p class="text-xs text-slate-800 font-bold">शिवनेरी जन्म</p>
+          <span class="text-[11px] text-slate-500 font-medium">जिजाऊंच्या पोटी सूर्योदय</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-sm text-center hover:border-bhagwa-500 transition">
+          <span class="text-3xl">⚔️</span>
+          <h4 class="text-lg sm:text-xl font-black font-royal text-bhagwa-800 mt-1">इ.स. १६४५</h4>
+          <p class="text-xs text-slate-800 font-bold">रायरेश्वरावर शपथ</p>
+          <span class="text-[11px] text-slate-500 font-medium">स्वराज्याची अखंड प्रतिज्ञा</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-sm text-center hover:border-bhagwa-500 transition">
+          <span class="text-3xl">👑</span>
+          <h4 class="text-lg sm:text-xl font-black font-royal text-bhagwa-800 mt-1">६ जून १६७४</h4>
+          <p class="text-xs text-slate-800 font-bold">रायगड राज्याभिषेक</p>
+          <span class="text-[11px] text-slate-500 font-medium">सार्वभौम छत्रपती पद</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-sm text-center hover:border-bhagwa-500 transition">
+          <span class="text-3xl">🛡️</span>
+          <h4 class="text-lg sm:text-xl font-black font-royal text-bhagwa-800 mt-1">३५०+ किल्ले</h4>
+          <p class="text-xs text-slate-800 font-bold">दुर्ग व जलदुर्ग</p>
+          <span class="text-[11px] text-slate-500 font-medium">अजिंक्य लष्करी सामर्थ्य</span>
+        </div>
+      </div>
+
+      <!-- DETAILED HISTORICAL CHAPTERS WITH AUTHENTIC MATCHING PHOTOS -->
+      <div class="space-y-6">
+        <div class="flex items-center gap-3 border-b-2 border-orange-200 pb-3">
+          <span class="text-2xl">📜</span>
+          <div>
+            <h3 class="text-xl sm:text-2xl font-black font-royal text-slate-900 tracking-wide">
+              स्वराज्याची अस्सल शौर्यगाथा (सचित्र ऐतिहासिक अध्याय)
+            </h3>
+            <p class="text-xs text-slate-500">प्रत्येक ऐतिहासिक घटनेचे मूळ किल्ले आणि तत्कालीन दस्तऐवजांच्या पुराव्यासह तपशील</p>
+          </div>
+        </div>
+
+        <!-- CHAPTER 1: शिवजन्म व जिजाऊंचे संस्कार (किल्ले शिवनेरी) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/1/1e/Shivneri_Fort_Birth_place_of_Shivaji_maharaj.jpg" 
+                 alt="किल्ले शिवनेरी - छत्रपती शिवरायांचे जन्मस्थान" 
+                 class="w-full h-full object-cover"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/a/a1/Shivneri_fort1.JPG'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i> किल्ले शिवनेरी • जन्मस्थान (जुन्नर, पुणे)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-bhagwa-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              🚩 १९ फेब्रुवारी १६३०
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded-md">अध्याय १</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">स्वराज्याची पायाभरणी</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                शिवजन्म, जिजाऊंचे संस्कार व शहाजीराजांचे स्वराज्य स्वप्न
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                पुण्याजवळील जुन्नरच्या अभेद्य किल्ले शिवनेरीवर फाल्गुन वद्य तृतीया, शके १५५१ (१९ फेब्रुवारी १६३०) रोजी छत्रपती शिवाजी महाराजांचा जन्म झाला. राष्ट्रमाता जिजाऊंनी बाल शिवबांवर रामायण, महाभारतातील शौर्यकथा, न्यायी वृत्ती, स्वाभिमान आणि रयतेविषयी कणव यांचे संस्कार रुजवले. वडील शहाजीराजे भोसले यांनी बंगळुरू येथून पुण्याची जहागीर आणि विश्वासू मावळ्यांचे सहकार्य देऊन 'स्वराज्य' स्थापनेचा पाया रचला.
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-bhagwa-900 font-bold">
+              <span>📍 स्थान: किल्ले शिवनेरी, जुन्नर</span>
+              <span class="text-slate-600 font-medium">मार्गदर्शक: राष्ट्रमाता राजमाता जिजाऊ आऊसाहेब</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 2: रायरेश्वरावर शपथ व तोरणा किल्ला विजय (१६४५) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] md:order-last bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/e/ea/Shivaji_British_Museum.jpg" 
+                 alt="छत्रपती शिवाजी महाराज भवानी तलवारीसह - ब्रिटिश म्युझियम ऐतिहासिक चित्र" 
+                 class="w-full h-full object-cover object-top"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/4/40/Chhatrapati_Shivaji_Maharaj.jpg'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i> रायरेश्वर मंदिर व किल्ले तोरणा (प्रचंडगड)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-bhagwa-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              🚩 इ.स. १६४५-४६
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded-md">अध्याय २</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">रक्ताची अखंड प्रतिज्ञा</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                रायरेश्वराच्या साक्षीने स्वराज्य शपथ व तोरणा किल्ला विजय
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                वयाच्या अवघ्या १६ व्या वर्षी शिवरायांनी तानाजी मालुसरे, बाजी पासलकर, येसाजी कंक, बापूजी मुद्गल या निष्ठावंत मावळ्यांसह सह्याद्रीच्या कुशीतील रायरेश्वराच्या पिंडीवर स्वतःच्या करंगळीच्या रक्ताचा अभिषेक केला. "हे राज्य व्हावे, ही श्रींची इच्छा!" असा अजरामर संकल्प सोडला. त्यानंतर १६४६ मध्ये आदिलशाहीचा बलाढ्य तोरणा किल्ला (प्रचंडगड) जिंकून स्वराज्याचे पहिले तोरण बांधले आणि राजगड किल्ल्याची निर्मिती सुरू केली.
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-bhagwa-900 font-bold">
+              <span>📍 स्थान: रायरेश्वर पठार (भोर) व किल्ले तोरणा</span>
+              <span class="text-slate-600 font-medium">संवगडी: तानाजी, येसाजी, बाजी पासलकर</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 3: प्रतापगड युद्ध व अफजलखान वध (१० नोव्हेंबर १६५९) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/00/Pratapgad_fort_front_view.jpg" 
+                 alt="किल्ले प्रतापगड - अफजलखान वधाचे ऐतिहासिक रणांगण" 
+                 class="w-full h-full object-cover"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/Pratapgad_fort_in_Maharashtra.jpg'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i> किल्ले प्रतापगड (जावळीचे खोरे, महाबळेश्वर)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-rose-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              🚩 १० नोव्हेंबर १६५९
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-rose-700 uppercase tracking-widest bg-rose-100 px-2 py-0.5 rounded-md">अध्याय ३</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">गनिमी काव्याचा विजय</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                प्रतापगड रणसंग्राम व बलाढ्य अफजलखानाचा वध
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                विजापूरच्या आदिलशाहीने स्वराज्याला चिरडण्यासाठी अफाट सैन्यासह धिप्पाड अफजलखानाला पाठवले. शिवरायांनी मुत्सद्दीपणाने खानाला जावळीच्या घनदाट जंगलात, प्रतापगडाच्या पायथ्याशी आणले. शामियान्यात खानाने दगाबाजी करून शिवरायांना मिठीत आवळून कट्यारीचा वार केला. परंतु अंगात चिलखत व डोक्यावर जिरेटोप असलेल्या शिवरायांनी डाव्या हातातील वाघनखे खानाच्या पोटात खुपसून त्याचा कोथळा बाहेर काढला. त्याच क्षणी जिवा महालाने सय्यद बंडाचा वार अडवून 'होता जिवा म्हणून वाचला शिवा' ही उक्ती सार्थ ठरवली.
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-bhagwa-900 font-bold">
+              <span>📍 स्थान: किल्ले प्रतापगड, सातारा</span>
+              <span class="text-slate-600 font-medium">आयुधे: वाघनखे, बिचवा, चिलखत, भवानी तलवार</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 4: पन्हाळगड वेढा व पावनखिंडीचा अमर संग्राम (१६६०) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] md:order-last bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Panhala_walls_on_Konkan_side.jpg" 
+                 alt="किल्ले पन्हाळगड तटबंदी - सिद्दी जोहरचा वेढा" 
+                 class="w-full h-full object-cover"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/f/f8/Panhala_fort_entrance.jpg'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i> किल्ले पन्हाळा ते घोडखिंड (पावनखिंड)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-bhagwa-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              🚩 १३ जुलै १६६०
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded-md">अध्याय ४</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">अतुलनीय आत्मबलिदान</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                पन्हाळगड वेढा सुटका व वीर बाजीप्रभूंचा पावनखिंडीतील लढा
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                सिद्दी जोहरने पन्हाळगडाला घातलेल्या कडक वेढ्यातून मुसळधार पावसात, आषाढी पौर्णिमेच्या काळोखात शिवराय विशाळगडाकडे निघाले. शत्रू पाठीवर धावून आला असता वीर बाजीप्रभू देशपांडे आणि ३०० शूर बांदल मावळ्यांनी घोडखिंडीत हजारो शत्रूसैन्याला रोखून धरले. शिवराय विशाळगडावर सुखरूप पोहोचून तोफांचे ५ आवाज होईपर्यंत, शरीरावर असंख्य जखमा घेऊन बाजीप्रभू अखेरच्या श्वासापर्यंत लढले. त्यांच्या पवित्र रक्ताने पावन झालेली ही घोडखिंड म्हणजेच इतिहासप्रसिद्ध 'पावनखिंड'!
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-bhagwa-900 font-bold">
+              <span>📍 स्थान: पन्हाळा ते विशाळगड</span>
+              <span class="text-slate-600 font-medium">हुतात्मे: वीर बाजीप्रभू देशपांडे, फुलाजीप्रभू व ३०० बांदल मावळे</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 5: सिंहगड विजय व सुभेदार तानाजी मालुसरे (१६७०) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/f/f5/Sinhagad.jpg" 
+                 alt="किल्ले सिंहगड - तानाजी मालुसरे शौर्य स्मारक" 
+                 class="w-full h-full object-cover"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/9/9a/Sinhagad_2010.JPG'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i> किल्ले कोंढाणा (सिंहगड, हवेली, पुणे)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-bhagwa-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              🚩 ४ फेब्रुवारी १६७०
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded-md">अध्याय ५</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">"आधी लगीन कोंढाण्याचं!"</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                किल्ले सिंहगड रणसंग्राम व सुभेदार तानाजी मालुसरे
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                मुघलांच्या ताब्यात गेलेला कोंढाणा किल्ला परत मिळवण्यासाठी सुभेदार तानाजी मालुसरे यांनी स्वतःच्या मुलाचे (रायबाचे) लग्न बाजूला ठेवून "आधी लगीन कोंढाण्याचं, मग माझ्या रायबाचं!" असा निर्धार केला. काळोख्या रात्री घोरपडीच्या साहाय्याने उभा द्रोणागिरी कडा चढून मावळ्यांनी गडावर प्रवेश केला. किल्लेदार उदयभानूशी झालेल्या तुंबळ युद्धात ढाल तुटल्यावर हातावर शेला गुंडाळून तानाजी लढले आणि गड जिंकला. शिवरायांना बातमी कळताच अश्रू ढाळत म्हणाले — "गड आला, पण सिंह गेला!"
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-bhagwa-900 font-bold">
+              <span>📍 स्थान: किल्ले कोंढाणा (सिंहगड)</span>
+              <span class="text-slate-600 font-medium">वीर सेनानी: सुभेदार तानाजी मालुसरे व शेलारमामा</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 6: ३२ मण सुवर्ण सिंहासन - भव्य शिवराज्याभिषेक (६ जून १६७४) -->
+        <div class="bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 rounded-3xl border-2 border-amber-400 shadow-md p-6 sm:p-8">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div class="lg:col-span-5">
+              <div class="rounded-2xl overflow-hidden border-2 border-amber-500 shadow-xl bg-slate-950">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/f/f9/Chhatrapati_Shivaji_Maharaj_Rajyabhishek_03.jpg" 
+                     alt="छत्रपती शिवाजी महाराज शिवराज्याभिषेक सोहळा किल्ले रायगड" 
+                     class="w-full h-64 object-cover object-top"
+                     onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/2/25/Raigad_Fort-Raigad_-Maharashtra-001.jpg'">
+                <p class="text-center text-[11px] text-amber-200 font-bold p-2 bg-bhagwa-950">
+                  👑 किल्ले रायगड • ३२ मण सुवर्ण सिंहासन (६ जून १६७४)
+                </p>
+              </div>
+            </div>
+            <div class="lg:col-span-7">
+              <div class="inline-flex items-center gap-2 bg-amber-200 text-amber-950 font-bold px-3 py-1 rounded-full text-xs mb-2 shadow-xs">
+                🚩 ज्येष्ठ शुद्ध त्रयोदशी, शके १५९६ • किल्ले रायगड
+              </div>
+              <h4 class="text-xl sm:text-2xl font-black font-royal text-slate-900">
+                छत्रपती शिवराज्याभिषेक सोहळा — सार्वभौम मराठा साम्राज्य
+              </h4>
+              <p class="text-sm text-slate-800 mt-2.5 font-marathi-body leading-relaxed">
+                पंडित गागाभट्टांच्या उपस्थितीत मंत्रघोषात छत्रपती शिवरायांचा राज्याभिषेक संपन्न झाला. शतकानुशतके परकीय आक्रमकांच्या गुलामगिरीत खितपत पडलेल्या हिंदुस्थानात स्वतंत्र, सार्वभौम आणि न्यायी लोकराज्याची स्थापना झाली. शिवरायांनी स्वतःचे 'शिवशक' सुरू केले, 'शिवराई' आणि 'होन' ही स्वतंत्र चलनाची नाणी पाडली. अष्टप्रधान मंडळाची अधिकृत स्थापना झाली आणि रायगड ही स्वराज्याची अजिंक्य राजधानी बनली!
+              </p>
+              <div class="mt-4 p-3 bg-white/80 rounded-xl border border-amber-300 text-xs text-amber-950 font-bold flex items-center gap-2">
+                <span>👑 घोष: "प्रौढ प्रताप पुरंदर, क्षत्रिय कुलावतंस, सिंहासनाधीश्वर, महाराजाधिराज छत्रपती शिवाजी महाराज की जय!"</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 7: भारतीय आरमाराचे जनक (Father of Indian Navy - सिंधुदुर्ग) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/8/87/Sindhudurg.jpg" 
+                 alt="किल्ले सिंधुदुर्ग - समुद्रात उभारलेला अभेद्य जलदुर्ग" 
+                 class="w-full h-full object-cover"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/2/25/Raigad_Fort-Raigad_-Maharashtra-001.jpg'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-blue-300"></i> किल्ले सिंधुदुर्ग जलदुर्ग (मालवण, अरबी समुद्र)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-blue-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              ⚓ भारतीय आरमार • जलदुर्ग
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-blue-700 uppercase tracking-widest bg-blue-100 px-2 py-0.5 rounded-md">अध्याय ७</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">सागरी सीमा संरक्षण</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                भारतीय आरमाराचे जनक (Father of the Indian Navy)
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                "ज्याचा समुद्र त्याचे राज्य!" हे ओळखून शिवरायांनी आशिया खंडातील सर्वात आधुनिक आणि शिस्तबद्ध नौदल (आरमार) उभारले. समुद्रात खडक फोडून आणि शिशाचा पाया भरून सिंधुदुर्ग, विजयदुर्ग, सुवर्णदुर्ग, पद्मदुर्ग सारखे अभेद्य जलदुर्ग निर्माण केले. गुराब, गलबत, मचवा यांसारख्या शेकडो लढाऊ जहाजांचा ताफा सज्ज करून सिद्दी, पोर्तुगीज, डच आणि इंग्रजांना समुद्रात रोखले. भारतीय नौदलाच्या अधिकृत ध्वजावर आजही शिवकालीन राजमुद्रेचा अष्टकोनी सन्मान आहे!
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-blue-900 font-bold">
+              <span>📍 प्रमुख जलदुर्ग: सिंधुदुर्ग, विजयदुर्ग, पद्मदुर्ग</span>
+              <span class="text-slate-600 font-medium">आरमार प्रमुख: मायनाक भंडारी व दर्यासारंग दौलत खान</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAPTER 8: धर्मवीर छत्रपती संभाजी महाराज व २७ वर्षांचे स्वातंत्र्ययुद्ध -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 hover:border-bhagwa-400 transition">
+          <div class="md:col-span-5 relative min-h-[240px] md:order-last bg-slate-900">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/1/1f/Sambhaji_painting_late_17th_century.png" 
+                 alt="धर्मवीर छत्रपती संभाजी महाराज १७ व्या शतकातील मूळ चित्र" 
+                 class="w-full h-full object-cover object-top"
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/4/40/Chhatrapati_Shivaji_Maharaj.jpg'">
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+              <p class="text-white text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i> धर्मवीर छत्रपती संभाजी महाराज (१६५७ - १६८९)
+              </p>
+            </div>
+            <span class="absolute top-3 left-3 bg-bhagwa-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+              🚩 १६८० ते १७०७ • अखंड स्वातंत्र्ययुद्ध
+            </span>
+          </div>
+          <div class="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-black text-amber-700 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded-md">अध्याय ८</span>
+                <span class="text-slate-300">•</span>
+                <span class="text-xs text-slate-500 font-bold">अखंड धगधगता लढा</span>
+              </div>
+              <h4 class="text-lg sm:text-xl font-black font-royal text-slate-900">
+                धर्मवीर छत्रपती संभाजी महाराज व २७ वर्षांचा स्वातंत्र्य संग्राम
+              </h4>
+              <p class="text-sm text-slate-700 mt-3 font-marathi-body leading-relaxed">
+                शिवरायांच्या निर्वाणानंतर धर्मवीर छत्रपती संभाजी महाराजांनी अवघ्या ९ वर्षांच्या कारकिर्दीत सलग १२८ लढाया लढल्या आणि एकाही लढाईत पराभव स्वीकारला नाही! मुघल, पोर्तुगीज, सिद्दी यांना एकाच वेळी पाणी पाजले. त्यांच्या बलिदानानंतर छत्रपती राजाराम महाराज, महाराणी ताराबाई, संताजी घोरपडे आणि धनाजी जाधव यांनी संपूर्ण सह्याद्री रणांगण बनवून मुघल बादशहा औरंगजेबाशी तब्बल २७ वर्षे अखंड लढा दिला. अखेर मुघल बादशहाची कबर महाराष्ट्राच्या मातीतच (खुलताबाद) खोदली गेली!
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-bhagwa-900 font-bold">
+              <span>👑 धुरंधर: छत्रपती संभाजी महाराज, महाराणी ताराबाई</span>
+              <span class="text-slate-600 font-medium">सेनानी: संताजी घोरपडे, धनाजी जाधव, रामचंद्रपंत अमात्य</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ASHTAPRADHAN MANDAL (शिवकालीन अष्टप्रधान मंडळ तक्ता) -->
+      <div class="bg-white p-6 rounded-3xl border-2 border-orange-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-5 border-b border-slate-100 pb-3">
+          <span class="text-3xl">⚖️</span>
+          <div>
+            <h4 class="text-xl font-black font-royal text-slate-900">शिवकालीन अष्टप्रधान मंडळ (Eight Ministers Council)</h4>
+            <p class="text-xs text-slate-500">छत्रपती शिवरायांची आधुनिक, न्यायप्रिय व कार्यक्षम लोकप्रशासकीय व्यवस्था</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 text-xs">
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">१. पेशवे (मुख्य प्रधान)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">मोरोपंत त्रिंबक पिंगळे</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">समग्र राज्यकारभार, प्रशासन व सैन्य संचलन प्रमुख</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">२. अमात्य (अर्थमंत्री)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">रामचंद्र नीलकंठ मुजुमदार</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">राज्याचा महसूल, जमा-खर्च व आर्थिक धोरण</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">३. सेनापती (सरनोबत)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">हंबीरराव मोहिते</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">समग्र पायदळ व घोडदळ लष्कराचे सर्वोच्च सेनापती</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">४. सचिव (सुरू-नवीस)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">अण्णाजी दत्तो</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">शासकीय आज्ञापत्रे, करव्यवस्था व जमीन मोजणी</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">५. मंत्री (वाकनीस)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">दत्ताजी त्रिंबक वाकनीस</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">दरबारातील दैनंदिन नोंदी व गुप्तहेर खात्याचे प्रमुख</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">६. सुमंत (परराष्ट्रमंत्री)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">रामचंद्र त्रिंबक डबीर</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">इतर सत्तांशी पत्रव्यवहार, विदेश संबंध व मुत्सद्देगिरी</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">७. न्यायाधीश (सर्वोच्च न्याय)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">निराजी रावजी</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">जात-धर्म न पाहता निःपक्षपाती व कठोर न्यायदान</p>
+          </div>
+          <div class="p-3.5 bg-orange-50/80 rounded-2xl border border-orange-200 hover:border-bhagwa-500 transition">
+            <span class="font-extrabold text-bhagwa-900 text-sm block">८. पंडितराव (धर्मदान)</span>
+            <span class="text-slate-800 font-bold block mt-0.5">रघुनाथ पंडितराव</span>
+            <p class="text-[11px] text-slate-600 mt-1 leading-normal">धार्मिक सलोखा, दानधर्म व विद्वान विदुषींचा सन्मान</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSPIRATIONAL SHIV JAYANTI RESOLUTION BANNER -->
+      <div class="bg-gradient-to-r from-bhagwa-900 via-orange-800 to-amber-900 text-white p-6 sm:p-8 rounded-3xl text-center shadow-xl border-2 border-amber-400/50">
+        <h4 class="text-xl sm:text-3xl font-black font-royal text-amber-200">🚩 १९ फेब्रुवारी शिवजयंती — आमचा सामाजिक संकल्प 🚩</h4>
+        <p class="text-sm sm:text-base text-orange-100 mt-3 max-w-2xl mx-auto font-marathi-body leading-relaxed">
+          "शिवछत्रपतींचे विचार हे केवळ पुस्तकातील इतिहास नसून आजच्या जीवनाचा दीपस्तंभ आहेत. महिलांचा सन्मान, शेतकऱ्यांना सहकार्य, वृक्षारोपण, रक्तदान आणि पारदर्शक समाजकार्य हीच खरी शिवजयंती!"
+        </p>
+        <div class="mt-5 inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/40 backdrop-blur px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-amber-200">
+          <span>॥ जय भवानी । जय शिवाजी ॥</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 6: EVENT PHOTO & VIDEO GALLERY (उत्सव गॅलरी) -->
+    <!-- ======================================================== -->
+    <div id="view-gallery" class="tab-view hidden space-y-5">
+      
+      <!-- Gallery Header & Actions -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
+            <i data-lucide="image" class="w-5 h-5 text-bhagwa-600"></i>
+            शिवजयंती महोत्सव फोटो व व्हिडिओ गॅलरी
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">वर्षानिहाय आठवणी, मिरवणूक, व्याख्यान व रक्तदान शिबिर क्षणचित्रे</p>
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <!-- Year Filter -->
+          <select id="galleryYearFilter" onchange="filterGalleryByYear(this.value)" class="text-xs px-3 py-2 border border-slate-300 rounded-xl bg-slate-50 font-bold text-slate-700 focus:outline-none">
+            <option value="ALL">सर्व वर्षे (All Years)</option>
+            <option value="2027">2027 (चालू वर्ष)</option>
+            <option value="2026">2026 उत्सव</option>
+            <option value="2025">2025 उत्सव</option>
+            <option value="2024">2024 उत्सव</option>
+          </select>
+
+          <!-- Add Photo / Video Button (Admin Only PIN) -->
+          <button onclick="openGalleryUploadModal()" class="px-3.5 py-2 bg-bhagwa-600 hover:bg-bhagwa-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 whitespace-nowrap">
+            <i data-lucide="plus" class="w-4 h-4"></i> नवीन फोटो जोडा
+          </button>
+        </div>
+      </div>
+
+      <!-- Gallery Grid -->
+      <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Dynamically rendered via JS -->
+      </div>
+
+      <!-- Empty state when no photos -->
+      <div id="galleryEmptyState" class="hidden bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300">
+        <i data-lucide="camera-off" class="w-10 h-10 text-slate-300 mx-auto mb-2"></i>
+        <h4 class="text-sm font-bold text-slate-700">या वर्षातील फोटो उपलब्ध नाहीत</h4>
+        <p class="text-xs text-slate-400 mt-1">नवीन फोटो जोडण्यासाठी वर दिलेल्या 'नवीन फोटो जोडा' बटनावर क्लिक करा.</p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- GALLERY LIGHTBOX MODAL -->
+  <div id="galleryLightboxModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="relative max-w-4xl w-full text-center">
+      <button onclick="closeGalleryLightbox()" class="absolute -top-10 right-0 text-white/80 hover:text-white text-2xl font-bold bg-white/10 hover:bg-white/20 p-2 rounded-full">
+        ✕
+      </button>
+      <img id="lightboxImage" src="" alt="उत्सव छायाचित्र" class="max-h-[80vh] w-auto mx-auto rounded-2xl shadow-2xl object-contain">
+      <div class="mt-3 text-white text-center">
+        <h4 id="lightboxTitle" class="text-base font-bold">उत्सव क्षणचित्र</h4>
+        <p id="lightboxMeta" class="text-xs text-orange-200 mt-0.5">2026 • शिवजयंती उत्सव</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALLERY UPLOAD MODAL (ADMIN PIN PROTECTED) -->
+  <div id="galleryUploadModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+          <i data-lucide="upload" class="w-4 h-4 text-bhagwa-600"></i> गॅलरीमध्ये फोटो / व्हिडिओ जोडा
+        </h3>
+        <button onclick="closeGalleryUploadModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 my-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-0.5">शीर्षक / कॅप्शन *</label>
+          <input type="text" id="galTitleInput" placeholder="उदा. भव्य पालखी सोहळा आणि शिवजन्मोत्सव" class="w-full px-3 py-2 border rounded-xl bg-slate-50">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-0.5">उत्सव वर्ष *</label>
+            <select id="galYearInput" class="w-full px-3 py-2 border rounded-xl bg-slate-50 font-bold">
+              <option value="2027">2027</option>
+              <option value="2026" selected>2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-0.5">प्रकार</label>
+            <select id="galTypeInput" class="w-full px-3 py-2 border rounded-xl bg-slate-50">
+              <option value="PHOTO">फोटो (Image)</option>
+              <option value="VIDEO">व्हिडिओ (Video Link)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-0.5">फोटो URL किंवा इमेज लिंक</label>
+          <input type="text" id="galUrlInput" placeholder="https://images.unsplash.com/... किंवा Cloud URL" class="w-full px-3 py-2 border rounded-xl bg-slate-50">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-0.5">किंवा मोबाईल/कॉम्प्युटरवरून फोटो निवडा</label>
+          <input type="file" id="galFileInput" accept="image/*" class="w-full text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-bhagwa-800 hover:file:bg-orange-200">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+        <button onclick="closeGalleryUploadModal()" class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">रद्द करा</button>
+        <button onclick="submitGalleryItem()" class="px-4 py-2 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg shadow-xs">गॅलरीत सेव्ह करा</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIRECT ONLINE UPI MODAL (DIRECT DONATION QR CODE) -->
+  <div id="directUpiModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-amber-400 text-center text-slate-800 relative">
+      <button onclick="closeDirectUpiModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition" title="बंद करा">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+
+      <div class="w-12 h-12 bg-amber-100 text-bhagwa-700 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-bold">
+        🚩
+      </div>
+      <h3 class="text-base font-black text-slate-900" id="directModalOrgName">शिवाजी राजे संघटना</h3>
+      <p class="text-xs text-slate-500 font-medium">थेट ऑनलाइन वर्गणी UPI QR कोड</p>
+
+      <!-- Amount Selector Chips & Custom Amount -->
+      <div class="my-3 space-y-2">
+        <p class="text-[11px] font-bold text-slate-600 mb-1">रक्कम निवडा किंवा हवी ती स्वतः टाका:</p>
+        <div class="flex justify-center gap-1.5 flex-wrap">
+          <button type="button" onclick="setDirectUpiOpenAmount()" id="btn-chip-open" class="amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 hover:border-bhagwa-500 bg-slate-50 text-slate-700">✨ कोणतीही रक्कम (Any)</button>
+          <button type="button" onclick="setDirectUpiAmount(101)" class="amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 hover:border-bhagwa-500 bg-slate-50">₹101</button>
+          <button type="button" onclick="setDirectUpiAmount(251)" class="amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 hover:border-bhagwa-500 bg-slate-50">₹251</button>
+          <button type="button" onclick="setDirectUpiAmount(501)" class="amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border-2 border-bhagwa-600 bg-orange-100 text-bhagwa-800">₹501</button>
+          <button type="button" onclick="setDirectUpiAmount(1100)" class="amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 hover:border-bhagwa-500 bg-slate-50">₹1,100</button>
+          <button type="button" onclick="setDirectUpiAmount(2100)" class="amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 hover:border-bhagwa-500 bg-slate-50">₹2,100</button>
+        </div>
+
+        <!-- Custom Amount Box -->
+        <div class="relative pt-1">
+          <span class="absolute left-3 top-3 text-slate-400 font-bold text-xs">₹</span>
+          <input type="number" id="directCustomAmtInput" min="1" placeholder="किंवा स्वतःची इच्छिक रक्कम टाका (उदा. ₹350, ₹5000)" oninput="handleDirectCustomAmt(this.value)" class="w-full text-xs pl-7 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500 font-bold text-slate-800 text-center">
+        </div>
+      </div>
+
+      <!-- Big QR Code Box -->
+      <div class="bg-gradient-to-b from-amber-50 to-orange-50 p-4 rounded-2xl border-2 border-amber-300 flex flex-col items-center justify-center my-3 shadow-inner">
+        <div id="directModalQrBox" class="bg-white p-3 rounded-xl border-2 border-amber-500 shadow-md w-44 h-44 flex items-center justify-center">
+          <!-- Big QR is rendered here -->
+        </div>
+        <p class="text-xs font-black text-slate-800 mt-2" id="directModalAmountDisplay">स्कॅन करा: ₹501.00</p>
+        <p class="text-[10px] text-slate-500">Google Pay / PhonePe / Paytm / BHIM</p>
+      </div>
+
+      <!-- Account Info -->
+      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-left text-xs mb-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <span class="text-[10px] text-slate-400 font-bold block">अधिकृत UPI ID:</span>
+            <span id="directModalUpiId" class="font-mono font-bold text-slate-900">shivajiraje@upi</span>
+          </div>
+          <button onclick="copyUpiId()" class="text-[10px] bg-white border border-slate-300 hover:bg-slate-100 px-2 py-1 rounded font-semibold text-slate-700 flex items-center gap-1">
+            <i data-lucide="copy" class="w-3 h-3"></i> कॉपी
+          </button>
+        </div>
+      </div>
+
+      <button onclick="closeDirectUpiModal()" class="w-full py-2.5 bg-bhagwa-600 hover:bg-bhagwa-700 text-white font-bold rounded-xl text-xs transition">
+        ठीक आहे (Done)
+      </button>
+    </div>
+  </div>
+
+  <!-- PUBLIC DIGITAL RECEIPT VERIFICATION MODAL (DIRECT FROM LINK) -->
+  <div id="publicReceiptModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border-2 border-orange-400 relative overflow-hidden my-4 text-slate-800">
+      
+      <!-- Close button -->
+      <button onclick="closePublicReceiptModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition" title="बंद करा">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Watermark background decoration -->
+      <div class="absolute -right-16 -top-16 w-40 h-40 bg-orange-100 rounded-full opacity-40 pointer-events-none"></div>
+
+      <!-- Verified Banner -->
+      <div class="text-center pb-4 border-b-2 border-amber-500">
+        <div class="text-3xl mb-1">🚩</div>
+        <h3 id="pubVerifyOrgName" class="text-xl font-black font-royal text-bhagwa-900 tracking-wide">शिवाजी राजे संघटना</h3>
+        <p id="pubVerifySubtitle" class="text-xs font-bold text-slate-700 font-marathi-body">छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)</p>
+        <div class="mt-2 inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-300 px-3.5 py-1 rounded-full text-xs font-bold shadow-xs">
+          <i data-lucide="check-check" class="w-4 h-4 text-emerald-600"></i>
+          अधिकृत व पडताळणीकृत डिजिटल पावती (Official Verified Receipt)
+        </div>
+      </div>
+
+      <!-- Receipt Details Box -->
+      <div class="py-4 space-y-2.5 text-xs">
+        <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+          <div>
+            <span class="text-slate-400 text-[10px] block uppercase font-bold">पावती क्र. (Receipt No)</span>
+            <span id="pubVerifyReceiptNo" class="font-mono font-black text-sm text-bhagwa-800">SJ-2027-0001</span>
+          </div>
+          <div class="text-right">
+            <span class="text-slate-400 text-[10px] block uppercase font-bold">दिनांक (Date)</span>
+            <span id="pubVerifyDate" class="font-bold text-slate-700">25-10-2026</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div>
+            <span class="text-slate-400 text-[10px] block font-bold">देणगीदाराचे नाव (Donor Name):</span>
+            <span id="pubVerifyDonorName" class="font-bold text-slate-900 text-sm">श्री. राहुल पाटील</span>
+          </div>
+          <div>
+            <span class="text-slate-400 text-[10px] block font-bold">पत्ता (Address):</span>
+            <span id="pubVerifyAddress" class="font-semibold text-slate-700">A Wing, Flat 402</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+          <div>
+            <span class="text-slate-400 text-[10px] block font-bold">पेमेंट मोड (Mode):</span>
+            <span id="pubVerifyPaymentMode" class="font-bold text-slate-800">CASH (RECEIVED)</span>
+          </div>
+          <div>
+            <span class="text-slate-400 text-[10px] block font-bold">स्वीकारकर्ता कार्यकर्ता (Volunteer):</span>
+            <span id="pubVerifyVolunteer" class="font-bold text-slate-800">रोहित पाटील</span>
+          </div>
+        </div>
+
+        <!-- Highlight Amount Box -->
+        <div class="mt-3 p-3.5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border-2 border-dashed border-orange-300 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-slate-600 block">स्वीकारलेली देणगी रक्कम:</span>
+            <span class="text-[10px] text-slate-500">Official Donation Received</span>
+          </div>
+          <span id="pubVerifyAmount" class="text-2xl font-black text-emerald-700">₹500.00</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-3 border-t border-slate-100 flex gap-2">
+        <button onclick="window.print()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="printer" class="w-4 h-4"></i> पावती प्रिंट करा
+        </button>
+        <button onclick="closePublicReceiptModal()" class="flex-1 py-2.5 bg-bhagwa-600 hover:bg-bhagwa-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="check" class="w-4 h-4"></i> ठीक आहे (Done)
+        </button>
+      </div>
+
+      <div class="text-center text-[10px] text-slate-400 mt-3">
+        🚩 शिवाजी राजे संघटना | सर्व हक्क राखीव | || जय भवानी जय शिवाजी ||
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PIN VERIFICATION MODAL -->
+  <div id="adminPinModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 text-center">
+      <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-base font-extrabold text-slate-800">सुरक्षित ऍडमिन प्रमाणीकरण</h3>
+      <p class="text-xs text-slate-500 mt-1">
+        UPI खाते किंवा सिस्टीम सेटिंग्ज बदलण्यासाठी फक्त मुख्य ऍडमिनचा गुप्त <strong>Security PIN</strong> आवश्यक आहे.
+      </p>
+
+      <form onsubmit="handleAdminPinSubmit(event)" class="mt-4 space-y-3">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 mb-1 text-left">ऍडमिन गुप्त पिन (Admin Master PIN):</label>
+          <input type="password" id="adminPinInput" required placeholder="••••" maxlength="6" class="w-full text-center text-xl tracking-widest font-mono font-bold py-2.5 border-2 border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+        </div>
+        <p id="pinErrorMsg" class="hidden text-xs text-rose-600 font-semibold">चुकीचा पिन! कार्यकर्ता हा डेटा बदलू शकत नाही.</p>
+        
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeAdminPinModal()" class="flex-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">रद्द करा</button>
+          <button type="submit" class="flex-1 py-2 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg shadow">लॉग-इन करा</button>
+        </div>
+      </form>
+      <p class="text-[10px] text-slate-400 mt-3">(डिफॉल्ट ऍडमिन पिन: <strong>1930</strong>)</p>
+    </div>
+  </div>
+
+  <!-- CLOUD & ADMIN CONFIG MODAL -->
+  <div id="configModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[92vh]">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+            मुख्य ऍडमिन कंट्रोल पॅनल (Admin Master Center)
+          </h3>
+          <p class="text-[11px] text-slate-500">संघटना माहिती, कार्यकर्ता यादी आणि सर्व सिस्टीम कस्टमायझेशन</p>
+        </div>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1">✕</button>
+      </div>
+
+      <!-- Admin Sub-Navigation Tabs -->
+      <div class="flex border-b border-slate-200 mt-3 text-xs font-semibold gap-1 overflow-x-auto">
+        <button onclick="switchAdminTab('general')" id="adm-tab-general" class="admin-tab-btn px-3 py-2 border-b-2 border-bhagwa-600 text-bhagwa-700 flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="settings" class="w-3.5 h-3.5"></i> संघटना व बजेट
+        </button>
+        <button onclick="switchAdminTab('volunteers')" id="adm-tab-volunteers" class="admin-tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i> कार्यकर्ता यादी (<span id="adminVolCount">0</span>)
+        </button>
+        <button onclick="switchAdminTab('security')" id="adm-tab-security" class="admin-tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5 whitespace-nowrap">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i> पिन व डेटा रिसेट
+        </button>
+      </div>
+
+      <!-- Tab Content Area (Scrollable) -->
+      <div class="overflow-y-auto flex-1 my-3 pr-1 space-y-3.5 text-xs">
+        
+        <!-- ============================================== -->
+        <!-- SUB-TAB 1: GENERAL ORG, EVENT & UPI SETTINGS -->
+        <!-- ============================================== -->
+        <div id="adm-view-general" class="admin-subview space-y-3">
+          
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+            <h4 class="font-bold text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="building" class="w-4 h-4 text-bhagwa-600"></i> संघटनेचे तपशील (Organization Details)
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-0.5">संघटना नाव (Org Name) *</label>
+                <input type="text" id="orgNameInput" placeholder="उदा. शिवाजी राजे संघटना" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white font-bold">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-0.5">उत्सव तारीख / बॅज (Event Badge) *</label>
+                <input type="text" id="eventBadgeInput" placeholder="उदा. 19 Feb उत्सव" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white">
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-0.5">पावती वरील उत्सव उपशीर्षक (Receipt Subtitle)</label>
+              <input type="text" id="eventSubtitleInput" placeholder="उदा. छत्रपती शिवाजी महाराज जयंती महोत्सव (19 फेब्रुवारी)" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white">
+            </div>
+          </div>
+
+          <!-- Budget & Website URL Setting -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div class="p-3 bg-orange-50 rounded-xl border border-orange-200 space-y-1">
+              <h4 class="font-bold text-orange-950 flex items-center gap-1.5 text-xs">
+                <i data-lucide="target" class="w-4 h-4 text-orange-700"></i> टार्गेट बजेट (₹)
+              </h4>
+              <input type="number" id="targetBudgetInput" placeholder="उदा. 200000" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white font-bold text-slate-800">
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+              <h4 class="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                <i data-lucide="globe" class="w-4 h-4 text-bhagwa-600"></i> लाइव्ह वेबसाइट लिंक (App URL)
+              </h4>
+              <input type="text" id="liveUrlInput" placeholder="उदा. https://shivaji-jayanti.vercel.app" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white">
+              <p class="text-[9px] text-slate-400">WhatsApp पावती याच लिंकवर उघडेल.</p>
+            </div>
+          </div>
+
+          <!-- UPI Configuration -->
+          <div class="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-2.5">
+            <h4 class="font-bold text-amber-950 flex items-center gap-1.5">
+              <i data-lucide="qr-code" class="w-4 h-4 text-amber-700"></i> बँक UPI QR कोड सेटिंग (Bank Account)
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-0.5">अधिकृत UPI ID (Google Pay/Bank) *</label>
+                <input type="text" id="upiIdInput" placeholder="उदा. shivajiraje@sbi" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono font-bold">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-0.5">खात्याचे नाव (Payee Name)</label>
+                <input type="text" id="upiNameInput" placeholder="उदा. Shivaji Raje Sanghatana" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SUB-TAB 2: VOLUNTEERS (कार्यकर्ता यादी & व्यवस्थापन) -->
+        <!-- ============================================== -->
+        <div id="adm-view-volunteers" class="admin-subview hidden space-y-3">
+          
+          <!-- Add New Volunteer Form -->
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+              <i data-lucide="user-plus" class="w-4 h-4 text-bhagwa-600"></i> नवीन अधिकृत कार्यकर्ता जोडा (Add Volunteer)
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+              <div>
+                <label class="block font-semibold text-slate-600 mb-0.5">कार्यकर्त्याचे पूर्ण नाव *</label>
+                <input type="text" id="newVolName" placeholder="उदा. आकाश शिंदे" class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-600 mb-0.5">मोबाइल नंबर *</label>
+                <input type="tel" id="newVolPhone" placeholder="10 अंकी मोबाइल" class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-600 mb-0.5">नेमून दिलेला परिसर (Area)</label>
+                <input type="text" id="newVolArea" placeholder="उदा. Wing C & D" class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-600 mb-0.5">प्रोफाइल फोटो (Photo)</label>
+                <input type="file" id="newVolPhoto" accept="image/*" onchange="previewVolunteerPhoto(event)" class="w-full text-xs text-slate-500 file:mr-1.5 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-orange-100 file:text-bhagwa-800 hover:file:bg-orange-200">
+                <div id="newVolPhotoPreviewBox" class="hidden mt-1 flex items-center gap-1.5">
+                  <img id="newVolPhotoPreviewImg" src="" class="w-6 h-6 rounded-full object-cover border border-orange-400">
+                  <span class="text-[9px] text-emerald-600 font-semibold">✓ फोटो सेलेक्ट</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-2.5 flex justify-end">
+              <button type="button" onclick="addNewVolunteer()" class="px-3 py-1.5 bg-bhagwa-600 hover:bg-bhagwa-700 text-white font-bold rounded-lg flex items-center gap-1 transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> कार्यकर्ता सेव्ह करा
+              </button>
+            </div>
+          </div>
+
+          <!-- Volunteers Registered List -->
+          <div>
+            <h4 class="font-bold text-slate-700 mb-2">नोंदणीकृत कार्यकर्ते (Active Volunteers)</h4>
+            <div class="border border-slate-200 rounded-xl overflow-hidden">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                    <th class="p-2.5">नाव</th>
+                    <th class="p-2.5">मोबाइल</th>
+                    <th class="p-2.5">परिसर</th>
+                    <th class="p-2.5">एकूण जमा केलेली वर्गणी</th>
+                    <th class="p-2.5 text-center">कृती</th>
+                  </tr>
+                </thead>
+                <tbody id="adminVolunteerTableBody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SUB-TAB 3: SECURITY, DATA RESET & CLOUD -->
+        <!-- ============================================== -->
+        <div id="adm-view-security" class="admin-subview hidden space-y-3">
+          
+          <!-- Change Admin PIN -->
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+            <h4 class="font-bold text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="key-round" class="w-4 h-4 text-slate-600"></i> ऍडमिन सिक्युरिटी पिन बदला (Change Master PIN)
+            </h4>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-0.5">नवीन 4-6 अंकी पिन</label>
+                <input type="password" id="newAdminPinInput" placeholder="उदा. 2027" maxlength="6" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-0.5">पिन कन्फर्म करा</label>
+                <input type="password" id="confirmAdminPinInput" placeholder="पुन्हा टाका" maxlength="6" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono">
+              </div>
+            </div>
+          </div>
+
+          <!-- Reset Data Section -->
+          <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 flex items-center justify-between">
+            <div>
+              <h4 class="font-bold text-rose-900 text-xs">डेमो डेटा साफ करा (Fresh Start)</h4>
+              <p class="text-[10px] text-rose-700">पूर्वीच्या सर्व चाचणी नोंदी डिलीट करून ₹0 ने नवीन सुरुवात करा.</p>
+            </div>
+            <button type="button" onclick="confirmResetAllData()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition">
+              सर्व साफ करा (₹0)
+            </button>
+          </div>
+
+          <!-- Cloud Supabase Configuration -->
+          <div class="p-3 bg-blue-50 rounded-xl border border-blue-200 space-y-2">
+            <h4 class="font-bold text-blue-900 flex items-center gap-1.5">
+              <i data-lucide="cloud" class="w-4 h-4 text-blue-600"></i> क्लाउड डेटाबेस (Supabase Cloud Sync)
+              <span id="supabaseStatusBadge" class="ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Not Connected</span>
+            </h4>
+            <p class="text-[10px] text-blue-700">Supabase connect केल्यावर सर्व कार्यकर्त्यांचा data एकाच cloud मध्ये दिसेल.</p>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-0.5">Supabase Project URL</label>
+              <input type="text" id="supabaseUrlInput" placeholder="https://xyz.supabase.co" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-0.5">Supabase Anon Key</label>
+              <input type="password" id="supabaseKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsIn..." class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white">
+            </div>
+            <div class="flex gap-2 pt-1">
+              <button onclick="saveSupabaseConfig()" class="flex-1 px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-1">
+                <i data-lucide="plug" class="w-3.5 h-3.5"></i> Connect करा
+              </button>
+              <button onclick="loadFromSupabase()" class="flex-1 px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1">
+                <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i> Cloud वरून Load
+              </button>
+              <button onclick="syncAllToSupabase()" class="flex-1 px-3 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1">
+                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Cloud वर Upload
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+        <span class="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> ऍडमिन मोड सक्रिय
+        </span>
+        <div class="flex gap-2">
+          <button onclick="closeConfigModal()" class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">बंद करा</button>
+          <button onclick="saveAdminSettings()" class="px-4 py-2 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg shadow">सर्व बदल सेव्ह करा</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button onclick="closeConfigModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">रद्द करा</button>
+        <button onclick="saveSupabaseConfig()" class="px-4 py-2 text-xs font-semibold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg">सेव्ह करा</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+    <p>🚩 <strong>शिवाजी राजे संघटना</strong> | उत्सव व्यवस्थापन प्रणाली (UtsavLedger) | Final Year Major Project</p>
+  </footer>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>
