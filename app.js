@@ -16,28 +16,41 @@ function initSupabaseFromStorage() {
     try {
       supabaseClient = supabase.createClient(url, key);
       console.log("✅ Supabase client initialized");
-      updateSupabaseBadge(true);
+
+      // Verify actual database connectivity in background
+      supabaseClient.from("collections_simple").select("id").limit(1).then(({ error }) => {
+        if (!error) {
+          updateSupabaseBadge(true, "✅ Cloud Live (सिंक चालू)");
+        } else {
+          console.warn("⚠️ Supabase connection warning (check table):", error.message);
+          updateSupabaseBadge(false, "⚠️ Cloud Offline (SQL तपासा)");
+        }
+      }).catch(err => {
+        console.warn("⚠️ Supabase connection catch:", err);
+        updateSupabaseBadge(false, "⚠️ Cloud Offline (लोकल मोड)");
+      });
+
       return true;
     } catch (e) {
       console.warn("⚠️ Supabase init failed:", e);
       supabaseClient = null;
-      updateSupabaseBadge(false);
+      updateSupabaseBadge(false, "Not Connected");
       return false;
     }
   }
-  updateSupabaseBadge(false);
+  updateSupabaseBadge(false, "Not Connected");
   return false;
 }
 
-function updateSupabaseBadge(connected) {
+function updateSupabaseBadge(connected, text = null) {
   const badge = document.getElementById("supabaseStatusBadge");
   if (!badge) return;
   if (connected) {
-    badge.className = "ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
-    badge.innerText = "✅ Connected";
+    badge.className = "ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+    badge.innerText = text || "✅ Cloud Live";
   } else {
-    badge.className = "ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600";
-    badge.innerText = "Not Connected";
+    badge.className = "ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300";
+    badge.innerText = text || "⚠️ Offline मोड";
   }
 }
 
@@ -71,6 +84,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateNextReceiptNumber();
   populateVolunteerDropdown();
   loadGallery();
+
+  // Initialize today's date in expense date picker
+  const expenseDateInput = document.getElementById("expenseDate");
+  if (expenseDateInput && !expenseDateInput.value) {
+    expenseDateInput.value = new Date().toISOString().split("T")[0];
+  }
 
   // If Supabase is connected, automatically fetch latest cloud data & subscribe to live updates
   if (sbConnected) {
@@ -280,7 +299,6 @@ function getDeletedReceipts() {
 
 function markReceiptAsDeleted(receiptNo, id = null) {
   const list = getDeletedReceipts();
-  if (receiptNo && !list.includes(receiptNo)) list.push(receiptNo);
   if (id && !list.includes(id)) list.push(id);
   localStorage.setItem("utsav_deleted_receipts", JSON.stringify(list));
 }
@@ -306,6 +324,13 @@ function markExpenseAsDeleted(id) {
   localStorage.setItem("utsav_deleted_expenses", JSON.stringify(list));
 }
 
+function unmarkExpenseAsDeleted(id) {
+  if (!id) return;
+  let list = getDeletedExpenses();
+  list = list.filter(item => item !== id);
+  localStorage.setItem("utsav_deleted_expenses", JSON.stringify(list));
+}
+
 function loadStoredData() {
   const storedCollections = localStorage.getItem("utsav_collections");
   const storedExpenses = localStorage.getItem("utsav_expenses");
@@ -316,12 +341,12 @@ function loadStoredData() {
     try {
       collections = JSON.parse(storedCollections);
       if (!Array.isArray(collections)) collections = [];
-      // Clean out old dummy demo entries and any deleted receipts
+      // Clean out old dummy demo entries and any deleted records by unique ID
       collections = collections.filter(c => 
+        c && 
         c.id !== "col-1" && 
         c.id !== "col-2" && 
         c.donorName !== "संजय देशमुख" &&
-        !deletedReceipts.includes(c.receiptNo) &&
         !deletedReceipts.includes(c.id)
       );
     } catch (e) {
@@ -360,7 +385,21 @@ function saveCollections(recordToSync = null) {
 }
 
 function saveExpenses(recordToSync = null) {
-  localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
+  try {
+    localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
+  } catch (err) {
+    console.warn("⚠️ localStorage quota reached for expenses, compressing:", err);
+    // Fallback: save without heavy base64 images if storage is restricted
+    try {
+      const lightweightExpenses = expenses.map(e => ({
+        ...e,
+        billUrl: (e.billUrl && e.billUrl.length > 50000) ? "" : e.billUrl
+      }));
+      localStorage.setItem("utsav_expenses", JSON.stringify(lightweightExpenses));
+    } catch (e2) {
+      console.error("Critical localStorage quota exceeded:", e2);
+    }
+  }
   updateLiveStats();
   renderExpensesTable();
   // Auto-sync latest entry to Supabase if connected
@@ -387,6 +426,14 @@ function switchTab(tabName) {
   if (activeTabBtn) {
     activeTabBtn.classList.remove("border-transparent", "text-orange-200");
     activeTabBtn.classList.add("border-white", "text-white");
+  }
+
+  if (tabName === "expenses") {
+    const expDate = document.getElementById("expenseDate");
+    if (expDate && !expDate.value) {
+      expDate.value = new Date().toISOString().split("T")[0];
+    }
+    renderExpensesTable();
   }
 
   lucide.createIcons();
@@ -1461,6 +1508,10 @@ function showPublicReceiptModal(receiptNo) {
   enterStandaloneReceiptMode(receiptNo);
 }
 
+function openStandaloneReceiptView(receiptNo) {
+  enterStandaloneReceiptMode(receiptNo);
+}
+
 function closePublicReceiptModal() {
   exitReceiptViewToApp();
 }
@@ -1476,40 +1527,116 @@ function previewBillImage(e) {
 
   const reader = new FileReader();
   reader.onload = function(event) {
-    uploadedBillDataUrl = event.target.result;
-    document.getElementById("billPreviewImg").src = uploadedBillDataUrl;
-    document.getElementById("billPreviewContainer").classList.remove("hidden");
+    const img = new Image();
+    img.onload = function() {
+      // Auto-compress and scale down mobile camera pictures to max 800px
+      const canvas = document.createElement("canvas");
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width = Math.round((width * MAX_HEIGHT) / height);
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 0.65 quality JPEG -> ~40-60KB (super lightweight, ultra safe)
+      uploadedBillDataUrl = canvas.toDataURL("image/jpeg", 0.65);
+      const previewImg = document.getElementById("billPreviewImg");
+      if (previewImg) previewImg.src = uploadedBillDataUrl;
+      const previewContainer = document.getElementById("billPreviewContainer");
+      if (previewContainer) previewContainer.classList.remove("hidden");
+    };
+    img.onerror = function() {
+      uploadedBillDataUrl = event.target.result;
+      const previewImg = document.getElementById("billPreviewImg");
+      if (previewImg) previewImg.src = uploadedBillDataUrl;
+      const previewContainer = document.getElementById("billPreviewContainer");
+      if (previewContainer) previewContainer.classList.remove("hidden");
+    };
+    img.src = event.target.result;
   };
   reader.readAsDataURL(file);
 }
 
 function handleExpenseSubmit(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
 
-  const category = document.getElementById("expenseCategory").value;
-  const vendor = document.getElementById("expenseVendor").value.trim();
-  const amount = parseFloat(document.getElementById("expenseAmount").value);
-  const date = document.getElementById("expenseDate").value;
-  const desc = document.getElementById("expenseDesc").value.trim();
+  try {
+    const categoryEl = document.getElementById("expenseCategory");
+    const vendorEl = document.getElementById("expenseVendor");
+    const amountEl = document.getElementById("expenseAmount");
+    const dateEl = document.getElementById("expenseDate");
+    const descEl = document.getElementById("expenseDesc");
 
-  const newExpense = {
-    id: "exp-" + Date.now(),
-    category,
-    vendor,
-    amount,
-    date,
-    billUrl: uploadedBillDataUrl,
-    desc
-  };
+    const category = categoryEl ? categoryEl.value : "Miscellaneous";
+    const vendor = vendorEl ? vendorEl.value.trim() : "";
+    const rawAmount = amountEl ? amountEl.value.trim() : "";
+    const amount = parseFloat(rawAmount);
+    const date = (dateEl && dateEl.value) ? dateEl.value : new Date().toISOString().split("T")[0];
+    const desc = descEl ? descEl.value.trim() : "";
 
-  unmarkExpenseAsDeleted(newExpense.id);
-  expenses.unshift(newExpense);
-  saveExpenses();
+    // User-friendly Marathi validations
+    if (!vendor) {
+      alert("⚠️ कृपया दुकानदार / वेंडरचे नाव टाका!");
+      if (vendorEl) vendorEl.focus();
+      return;
+    }
 
-  alert(`✓ खर्च नोंद यशस्वी! रक्कम: ₹${newExpense.amount}`);
-  document.getElementById("expenseForm").reset();
-  document.getElementById("billPreviewContainer").classList.add("hidden");
-  uploadedBillDataUrl = "";
+    if (isNaN(amount) || amount <= 0) {
+      alert("⚠️ कृपया योग्य खर्च रक्कम (उदा. 500) टाका!");
+      if (amountEl) amountEl.focus();
+      return;
+    }
+
+    const newExpense = {
+      id: "exp-" + Date.now(),
+      category,
+      vendor,
+      amount,
+      date,
+      billUrl: uploadedBillDataUrl || "",
+      desc,
+      createdAt: new Date().toISOString()
+    };
+
+    if (typeof unmarkExpenseAsDeleted === "function") {
+      unmarkExpenseAsDeleted(newExpense.id);
+    }
+    expenses.unshift(newExpense);
+    saveExpenses();
+
+    alert(`✅ खर्च नोंद यशस्वी झाली!\n\nदुकानदार/वेंडर: ${newExpense.vendor}\nरक्कम: ₹${newExpense.amount.toLocaleString("en-IN")}\nवर्गवारी: ${newExpense.category}`);
+    
+    const form = document.getElementById("expenseForm");
+    if (form) form.reset();
+    
+    const preview = document.getElementById("billPreviewContainer");
+    if (preview) preview.classList.add("hidden");
+    
+    uploadedBillDataUrl = "";
+
+    // Reset date to today's date for convenient next entry
+    if (dateEl) {
+      dateEl.value = new Date().toISOString().split("T")[0];
+    }
+  } catch (err) {
+    console.error("Expense submit exception:", err);
+    alert("⚠️ खर्च नोंद करताना त्रुटी आली: " + err.message);
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1662,8 +1789,11 @@ function filterCollections() {
 
 function renderExpensesTable() {
   const tbody = document.getElementById("expenseTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
-  document.getElementById("expenseCountText").innerText = `${expenses.length} नोंदी`;
+  
+  const countEl = document.getElementById("expenseCountText");
+  if (countEl) countEl.innerText = `${expenses.length} नोंदी`;
 
   if (expenses.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">अद्याप कोणताही खर्च नोंदवलेला नाही.</td></tr>`;
@@ -1672,16 +1802,16 @@ function renderExpensesTable() {
 
   expenses.forEach(e => {
     const billBtn = e.billUrl 
-      ? `<button onclick="showBillModal('${e.billUrl}')" class="text-bhagwa-600 underline font-semibold">बिल पाहा</button>`
+      ? `<button onclick="viewBillByExpenseId('${e.id}')" class="text-bhagwa-600 underline font-semibold cursor-pointer">बिल पाहा</button>`
       : `<span class="text-slate-400">फोटो नाही</span>`;
 
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
-      <td class="p-2.5 font-mono text-slate-500">${e.date}</td>
-      <td class="p-2.5 font-semibold text-slate-800">${e.category}</td>
-      <td class="p-2.5">${e.vendor}<br><span class="text-[10px] text-slate-400">${e.desc || ""}</span></td>
-      <td class="p-2.5 font-bold text-rose-700">₹${e.amount.toLocaleString("en-IN")}</td>
+      <td class="p-2.5 font-mono text-slate-500">${e.date || "-"}</td>
+      <td class="p-2.5 font-semibold text-slate-800">${e.category || "-"}</td>
+      <td class="p-2.5">${e.vendor || "-"}<br><span class="text-[10px] text-slate-400">${e.desc || ""}</span></td>
+      <td class="p-2.5 font-bold text-rose-700">₹${(e.amount || 0).toLocaleString("en-IN")}</td>
       <td class="p-2.5 whitespace-nowrap">
         ${billBtn}
         <button onclick="deleteExpense('${e.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-2 font-bold shadow-2xs" title="फक्त ऍडमिनसाठी: खर्च नोंद हटवा">
@@ -1691,6 +1821,30 @@ function renderExpensesTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function viewBillByExpenseId(expId) {
+  const item = expenses.find(e => e.id === expId);
+  if (item && item.billUrl) {
+    showBillModal(item.billUrl);
+  } else {
+    alert("या खर्चाचे बिल फोटो जोडलेले नाही.");
+  }
+}
+
+function showBillModal(imgUrl) {
+  if (!imgUrl) return;
+  const modal = document.getElementById("galleryLightboxModal");
+  const img = document.getElementById("lightboxImage");
+  if (modal && img) {
+    img.src = imgUrl;
+    modal.classList.remove("hidden");
+  } else {
+    const win = window.open();
+    if (win) {
+      win.document.write(`<img src="${imgUrl}" style="max-width:100%; height:auto;" />`);
+    }
+  }
 }
 
 function viewReceiptDirectly(id) {
@@ -2018,6 +2172,17 @@ function saveAdminSettings() {
       return;
     }
     localStorage.setItem("utsav_admin_pin", newPin);
+
+    // Sync admin PIN to Supabase settings so all devices share the same PIN
+    if (supabaseClient) {
+      supabaseClient.from("settings_simple").upsert({
+        key: "admin_pin",
+        value: newPin,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" }).then(({ error }) => {
+        if (error) console.warn("Supabase PIN sync note (table may be pending):", error.message);
+      }).catch(err => console.warn("Supabase PIN sync error:", err));
+    }
   }
 
   if (upiId) localStorage.setItem("utsav_upi_id", upiId);
@@ -2214,7 +2379,7 @@ async function saveSupabaseConfig() {
 async function syncCollectionToSupabase(col) {
   if (!supabaseClient || !col) return false;
   try {
-    const { error } = await supabaseClient.from("collections_simple").upsert({
+    const payload = {
       id: col.id,
       receipt_no: col.receiptNo,
       donor_name: col.donorName,
@@ -2229,7 +2394,13 @@ async function syncCollectionToSupabase(col) {
       utr_number: col.utr || col.transactionRef || null,
       collected_date: col.date,
       created_at: col.createdAt || new Date().toISOString()
-    }, { onConflict: "id" });
+    };
+
+    let { error } = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "receipt_no" });
+    if (error) {
+      const retry = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "id" });
+      error = retry.error;
+    }
 
     if (error) {
       console.warn("Supabase sync error (collection):", error.message);
@@ -2341,21 +2512,29 @@ async function loadFromSupabase() {
     const deletedReceipts = getDeletedReceipts();
     const deletedExpenses = getDeletedExpenses();
 
-    if (!colErr && colData) {
-      collections = colData
-        .filter(r => {
-          if (r.id === "col-1" || r.id === "col-2" || r.donor_name === "संजय देशमुख") return false;
-          if (deletedReceipts.includes(r.receipt_no) || deletedReceipts.includes(r.id)) {
-            // Actively purge from cloud in background so it's permanently erased
-            if (supabaseClient) {
-              if (r.receipt_no) supabaseClient.from("collections_simple").delete().eq("receipt_no", r.receipt_no).then();
-              if (r.id) supabaseClient.from("collections_simple").delete().eq("id", r.id).then();
-            }
-            return false;
+    // 1. SMART MERGE COLLECTIONS: Never overwrite local records with empty array!
+    if (!colErr && Array.isArray(colData)) {
+      const mergedMap = new Map();
+
+      // Keep all valid local collections that are not marked as deleted
+      collections.forEach(c => {
+        if (c && c.receiptNo && !deletedReceipts.includes(c.id)) {
+          mergedMap.set(c.receiptNo, c);
+        }
+      });
+
+      // Merge in cloud data
+      colData.forEach(r => {
+        if (r.id === "col-1" || r.id === "col-2" || r.donor_name === "संजय देशमुख") return;
+        if (deletedReceipts.includes(r.id)) {
+          if (supabaseClient) {
+            if (r.receipt_no) supabaseClient.from("collections_simple").delete().eq("receipt_no", r.receipt_no).then();
+            if (r.id) supabaseClient.from("collections_simple").delete().eq("id", r.id).then();
           }
-          return true;
-        })
-        .map(r => ({
+          return;
+        }
+
+        const cloudItem = {
           id: r.id,
           receiptNo: r.receipt_no,
           donorName: r.donor_name,
@@ -2371,26 +2550,49 @@ async function loadFromSupabase() {
           utr: r.utr_number || "",
           date: r.collected_date,
           createdAt: r.created_at
-        }));
+        };
+
+        mergedMap.set(r.receipt_no, cloudItem);
+      });
+
+      collections = Array.from(mergedMap.values()).sort((a, b) => {
+        return (b.receiptNo || "").localeCompare(a.receiptNo || "");
+      });
+
       localStorage.setItem("utsav_collections", JSON.stringify(collections));
       updateLiveStats();
       renderCollectionsTable();
       updateNextReceiptNumber();
+
+      // Proactively auto-sync any local collections missing on the cloud
+      const cloudReceipts = new Set(colData.map(r => r.receipt_no));
+      collections.forEach(c => {
+        if (!cloudReceipts.has(c.receiptNo)) {
+          syncCollectionToSupabase(c);
+        }
+      });
+    } else if (colErr) {
+      console.warn("⚠️ Supabase collections fetch warning (local data preserved):", colErr.message);
     }
 
-    if (!expErr && expData) {
-      expenses = expData
-        .filter(r => {
-          if (r.id === "exp-1" || r.id === "exp-2") return false;
-          if (deletedExpenses.includes(r.id)) {
-            if (supabaseClient) {
-              supabaseClient.from("expenses_simple").delete().eq("id", r.id).then();
-            }
-            return false;
+    // 2. SMART MERGE EXPENSES: Never wipe out local expenses!
+    if (!expErr && Array.isArray(expData)) {
+      const expMap = new Map();
+      expenses.forEach(e => {
+        if (e && e.id && !deletedExpenses.includes(e.id)) {
+          expMap.set(e.id, e);
+        }
+      });
+
+      expData.forEach(r => {
+        if (r.id === "exp-1" || r.id === "exp-2") return;
+        if (deletedExpenses.includes(r.id)) {
+          if (supabaseClient) {
+            supabaseClient.from("expenses_simple").delete().eq("id", r.id).then();
           }
-          return true;
-        })
-        .map(r => ({
+          return;
+        }
+        expMap.set(r.id, {
           id: r.id,
           category: r.category,
           vendor: r.vendor_name,
@@ -2399,10 +2601,24 @@ async function loadFromSupabase() {
           desc: r.description,
           billUrl: r.bill_image_url,
           createdAt: r.created_at
-        }));
+        });
+      });
+
+      expenses = Array.from(expMap.values()).sort((a, b) => {
+        return (b.date || "").localeCompare(a.date || "");
+      });
+
       localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
-      updateLiveStats();
       renderExpensesTable();
+
+      const cloudExpIds = new Set(expData.map(r => r.id));
+      expenses.forEach(e => {
+        if (!cloudExpIds.has(e.id)) {
+          syncExpenseToSupabase(e);
+        }
+      });
+    } else if (expErr) {
+      console.warn("⚠️ Supabase expenses fetch warning (local data preserved):", expErr.message);
     }
 
     // Load Volunteers from Supabase (for multi-device sync)
@@ -2439,6 +2655,27 @@ async function loadFromSupabase() {
       }
     } catch (ve) {
       console.warn("Supabase volunteer fetch note:", ve);
+    }
+
+    // 4. Cloud Settings Sync (Admin PIN & Global Config across devices)
+    try {
+      const { data: setData, error: setErr } = await supabaseClient
+        .from("settings_simple")
+        .select("*");
+
+      if (!setErr && setData && Array.isArray(setData)) {
+        setData.forEach(s => {
+          if (s.key === "admin_pin" && s.value) {
+            localStorage.setItem("utsav_admin_pin", s.value);
+          } else if (s.key === "upi_id" && s.value) {
+            localStorage.setItem("utsav_upi_id", s.value);
+          } else if (s.key === "upi_name" && s.value) {
+            localStorage.setItem("utsav_upi_name", s.value);
+          }
+        });
+      }
+    } catch (se) {
+      console.warn("Supabase settings note:", se);
     }
 
     updateLiveStats();

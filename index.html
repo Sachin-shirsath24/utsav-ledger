@@ -536,10 +536,10 @@
             नवीन खर्चाची नोंद (Add Expense Voucher)
           </h2>
 
-          <form id="expenseForm" onsubmit="handleExpenseSubmit(event)" class="space-y-3.5 text-xs">
+          <form id="expenseForm" onsubmit="handleExpenseSubmit(event); return false;" novalidate class="space-y-3.5 text-xs">
             <div>
               <label class="block font-semibold text-slate-700 mb-1">खर्च वर्गवारी (Category) *</label>
-              <select id="expenseCategory" required class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              <select id="expenseCategory" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
                 <option value="Mandap & Stage">मंडप व स्टेज व्यवस्था (Mandap & Stage)</option>
                 <option value="Sound & DJ System">साउंड व DJ सिस्टीम (Sound & DJ)</option>
                 <option value="Prasad & Annadanam">प्रसाद व अन्नदान (Food/Prasad)</option>
@@ -553,22 +553,22 @@
 
             <div>
               <label class="block font-semibold text-slate-700 mb-1">दुकानदार / वेंडर नाव (Vendor Name) *</label>
-              <input type="text" id="expenseVendor" required placeholder="उदा. ओंकार मंडप डेकोरेटर्स" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+              <input type="text" id="expenseVendor" placeholder="उदा. ओंकार मंडप डेकोरेटर्स" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">खर्च रक्कम (Amount in ₹) *</label>
-                <input type="number" id="expenseAmount" required min="10" placeholder="5000" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-bold text-rose-700 focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+                <input type="number" id="expenseAmount" min="10" placeholder="5000" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-bold text-rose-700 focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">बिल तारीख *</label>
-                <input type="date" id="expenseDate" required class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
+                <input type="date" id="expenseDate" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500">
               </div>
             </div>
 
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">बिल / पावती फोटो अपलोड (Upload Bill Photo) *</label>
+              <label class="block font-semibold text-slate-700 mb-1">बिल / पावती फोटो अपलोड (Upload Bill Photo) (ऐच्छिक)</label>
               <input type="file" id="expenseBillFile" accept="image/*" onchange="previewBillImage(event)" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-bhagwa-700 hover:file:bg-orange-100">
               <div id="billPreviewContainer" class="hidden mt-2 border rounded-lg p-2 bg-slate-50 flex items-center justify-between">
                 <img id="billPreviewImg" src="" alt="Bill Preview" class="h-16 w-16 object-cover rounded border">
@@ -581,8 +581,8 @@
               <textarea id="expenseDesc" rows="2" placeholder="खर्चाबाबत अधिक माहिती..." class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bhagwa-500"></textarea>
             </div>
 
-            <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 transition">
-              <i data-lucide="plus-circle" class="w-4 h-4"></i> खर्च जतन करा
+            <button type="button" onclick="handleExpenseSubmit(event)" id="btnSaveExpense" class="w-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 transition cursor-pointer">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i> खर्च जतन करा (Add Expense Voucher)
             </button>
           </form>
         </div>
@@ -1875,10 +1875,10 @@
 
   <!-- FOOTER -->
   <footer id="appFooter" class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-    <p>🚩 <strong>शिवाजी राजे संघटना</strong> | उत्सव व्यवस्थापन प्रणाली (UtsavLedger) | Final Year Major Project</p>
+    <p>🚩 <strong>शिवाजी राजे संघटना</strong> | उत्सव व्यवस्थापन व पारदर्शक हिशोब प्रणाली (UtsavLedger)</p>
   </footer>
 
   <!-- App Script with cache-busting -->
-  <script src="app.js?v=3.2"></script>
+  <script src="app.js?v=3.7"></script>
 </body>
 </html>
