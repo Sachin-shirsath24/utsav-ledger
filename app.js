@@ -97,18 +97,42 @@ document.addEventListener("DOMContentLoaded", async () => {
     subscribeToSupabaseChanges();
   }
 
-  // Auto-regenerate UPI QR when user changes donation amount
-  const amountInput = document.getElementById("donationAmount");
-  if (amountInput) {
-    amountInput.addEventListener("input", () => {
-      const mode = document.getElementById("paymentMode")?.value;
-      if (mode === "UPI") {
-        const val = amountInput.value || "0";
-        generateLiveUpiQr(val);
-      }
-    });
-  }
+  // Initialize Festival Countdown to 19 Feb 2027
+  startFestivalCountdown();
 });
+
+function startFestivalCountdown() {
+  const targetDate = new Date("2027-02-19T00:00:00+05:30").getTime();
+
+  function update() {
+    const now = new Date().getTime();
+    const diff = targetDate - now;
+
+    if (diff <= 0) {
+      const daysEl = document.getElementById("countDays");
+      if (daysEl) daysEl.innerText = "0";
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const dEl = document.getElementById("countDays");
+    const hEl = document.getElementById("countHours");
+    const mEl = document.getElementById("countMins");
+    const sEl = document.getElementById("countSecs");
+
+    if (dEl) dEl.innerText = String(days);
+    if (hEl) hEl.innerText = String(hours).padStart(2, "0");
+    if (mEl) mEl.innerText = String(mins).padStart(2, "0");
+    if (sEl) sEl.innerText = String(secs).padStart(2, "0");
+  }
+
+  update();
+  setInterval(update, 1000);
+}
 
 // -----------------------------------------------------------------------------
 // 1. DATA INITIALIZATION & LOCALSTORAGE
@@ -139,18 +163,22 @@ function loadOrgBrandSettings() {
 
 function loadVolunteers() {
   const stored = localStorage.getItem("utsav_volunteers");
+  const deletedVols = getDeletedVolunteers();
+
   if (stored !== null) {
     try {
       volunteers = JSON.parse(stored);
       if (!Array.isArray(volunteers)) volunteers = [];
-      // Clean out the 3 old dummy demo volunteers (रोहित पाटील, अनिकेत शिंदे, स्वप्नील गायकवाड)
+      // Clean out deleted volunteers and old dummy demo entries
       volunteers = volunteers.filter(v =>
+        v &&
         v.id !== "vol-1" &&
         v.id !== "vol-2" &&
         v.id !== "vol-3" &&
         !v.name.includes("रोहित पाटील") &&
         !v.name.includes("अनिकेत शिंदे") &&
-        !v.name.includes("स्वप्नील गायकवाड")
+        !v.name.includes("स्वप्नील गायकवाड") &&
+        !deletedVols.includes(v.id)
       );
     } catch (e) {
       volunteers = [];
@@ -159,14 +187,17 @@ function loadVolunteers() {
     volunteers = [];
   }
 
-  // If no volunteers remain or empty, default to the user's authentic volunteer: शिरसाठ सचिन
-  if (volunteers.length === 0) {
+  // If no volunteers remain or empty, default to the user's authentic volunteer: शिरसाठ सचिन (unless explicitly deleted)
+  if (volunteers.length === 0 && !deletedVols.includes("vol-sachin")) {
     volunteers = [
       { id: "vol-sachin", name: "शिरसाठ सचिन", phone: "9822000000", area: "मुख्य कमिटी" }
     ];
   }
 
-  saveVolunteers();
+  localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
+  populateVolunteerDropdown();
+  renderAdminVolunteersTable();
+  renderPublicVolunteers();
 }
 
 function saveVolunteers(volToSync = null) {
@@ -331,6 +362,28 @@ function unmarkExpenseAsDeleted(id) {
   localStorage.setItem("utsav_deleted_expenses", JSON.stringify(list));
 }
 
+function getDeletedVolunteers() {
+  try {
+    const raw = localStorage.getItem("utsav_deleted_volunteers");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function markVolunteerAsDeleted(id) {
+  const list = getDeletedVolunteers();
+  if (id && !list.includes(id)) list.push(id);
+  localStorage.setItem("utsav_deleted_volunteers", JSON.stringify(list));
+}
+
+function unmarkVolunteerAsDeleted(id) {
+  if (!id) return;
+  let list = getDeletedVolunteers();
+  list = list.filter(item => item !== id);
+  localStorage.setItem("utsav_deleted_volunteers", JSON.stringify(list));
+}
+
 function loadStoredData() {
   const storedCollections = localStorage.getItem("utsav_collections");
   const storedExpenses = localStorage.getItem("utsav_expenses");
@@ -442,7 +495,7 @@ function switchTab(tabName) {
 // -----------------------------------------------------------------------------
 // 3. DONATION SUBMIT & RECEIPT GENERATOR
 // -----------------------------------------------------------------------------
-function updateNextReceiptNumber() {
+async function updateNextReceiptNumber() {
   let maxNum = 0;
   collections.forEach(c => {
     if (c.receiptNo) {
@@ -453,6 +506,28 @@ function updateNextReceiptNumber() {
       }
     }
   });
+
+  // Check Supabase Cloud sequence or highest receipt_no so multi-devices don't collide
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("collections_simple")
+        .select("receipt_no")
+        .order("receipt_no", { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        const cloudMatch = data[0].receipt_no.match(/(\d+)$/);
+        if (cloudMatch) {
+          const cloudNum = parseInt(cloudMatch[1], 10);
+          if (cloudNum > maxNum) maxNum = cloudNum;
+        }
+      }
+    } catch (e) {
+      console.warn("Cloud receipt sequence check note:", e);
+    }
+  }
+
   const nextNum = maxNum + 1;
   currentReceiptNumber = `SJ-2027-${String(nextNum).padStart(4, "0")}`;
   const el = document.getElementById("autoReceiptNo");
@@ -764,13 +839,26 @@ function handleDonationSubmit(e) {
     }
 
     // Check duplicate UTR to prevent fraud/re-using old screenshots
-    const duplicate = collections.find(c => c.transactionRef && c.transactionRef === transactionRef);
+    const duplicate = collections.find(c => c.transactionRef && c.transactionRef === transactionRef && c.status !== "CANCELLED");
     if (duplicate) {
       alert(`🚨 फसवणूक अलर्ट (Duplicate Payment Detected):\n\nहा UTR नंबर (${transactionRef}) आधीच पावती क्र. ${duplicate.receiptNo} (${duplicate.donorName}) साठी वापरला गेला आहे!\n\nएकाच पेमेंटवर दोन पावत्या बनवता येणार नाहीत.`);
       document.getElementById("transactionRef").focus();
       return;
     }
   }
+
+  // Duplicate Warning for Same Flat or Phone
+  const duplicatePhoneOrFlat = collections.find(c => 
+    c.status !== "CANCELLED" && 
+    ((c.phone && phone && c.phone === phone) || (flat && c.flat && c.flat === flat && c.wing === wing && c.society === society))
+  );
+
+  if (duplicatePhoneOrFlat) {
+    const cont = confirm(`⚠️ संभाव्य दुबार नोंद इशारा (Duplicate Warning):\n\nयापूर्वीच पावती क्र. ${duplicatePhoneOrFlat.receiptNo} वर ${duplicatePhoneOrFlat.donorName} (फ्लॅट: ${duplicatePhoneOrFlat.wing}-${duplicatePhoneOrFlat.flat}) यांच्याकडून ₹${duplicatePhoneOrFlat.amount} ची नोंद झाली आहे.\n\nतुम्हाला तरीही नवीन पावती बनवायची आहे का?`);
+    if (!cont) return;
+  }
+
+  const isOptIn = document.getElementById("donorOptInCheck") ? document.getElementById("donorOptInCheck").checked : false;
 
   const newRecord = {
     id: "col-" + Date.now(),
@@ -785,6 +873,7 @@ function handleDonationSubmit(e) {
     transactionRef: transactionRef,
     status: mode === "PLEDGE" ? "PLEDGED" : (mode === "UPI" ? "PENDING_VERIFY" : "RECEIVED"),
     volunteer,
+    isPublicOptIn: isOptIn,
     date: todayIso,
     time: nowTime,
     dateTime: fullDateTime,
@@ -817,11 +906,13 @@ function handleDonationSubmit(e) {
     }
   }
 
-  // Generate Receipt Verification QR
+  // Generate Receipt Verification QR (Direct link to this application's verification view)
   const qrBox = document.getElementById("receiptQr");
   qrBox.innerHTML = "";
+  const currentBaseUrl = window.location.origin + window.location.pathname;
+  const directVerifyUrl = `${currentBaseUrl}?receipt=${encodeURIComponent(newRecord.receiptNo)}`;
   new QRCode(qrBox, {
-    text: `https://utsav.app/verify?receipt=${newRecord.receiptNo}&amount=${newRecord.amount}`,
+    text: directVerifyUrl,
     width: 52,
     height: 52,
     colorDark: "#1e293b",
@@ -1651,18 +1742,37 @@ function updateLiveStats() {
   const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
   const balance = totalCollected - totalSpent;
 
-  const formatInr = n => "₹" + n.toLocaleString("en-IN");
+  const formatInr = n => {
+    if (n < 0) return "-₹" + Math.abs(n).toLocaleString("en-IN");
+    return "₹" + n.toLocaleString("en-IN");
+  };
 
   // Top header stats
   document.getElementById("statTarget").innerText = formatInr(currentBudget);
   document.getElementById("statCollected").innerText = formatInr(totalCollected);
   document.getElementById("statSpent").innerText = formatInr(totalSpent);
-  document.getElementById("statBalance").innerText = formatInr(balance);
+  const balEl = document.getElementById("statBalance");
+  if (balEl) {
+    balEl.innerText = formatInr(balance);
+    if (balance < 0) {
+      balEl.className = "text-xl font-bold font-mono text-rose-600";
+    } else {
+      balEl.className = "text-xl font-bold font-mono text-emerald-700";
+    }
+  }
 
   // Public Transparency stats
   document.getElementById("pubStatCollected").innerText = formatInr(totalCollected);
   document.getElementById("pubStatSpent").innerText = formatInr(totalSpent);
-  document.getElementById("pubStatBalance").innerText = formatInr(balance);
+  const pubBalEl = document.getElementById("pubStatBalance");
+  if (pubBalEl) {
+    pubBalEl.innerText = formatInr(balance);
+    if (balance < 0) {
+      pubBalEl.className = "text-xl font-bold text-rose-600";
+    } else {
+      pubBalEl.className = "text-xl font-bold text-emerald-800";
+    }
+  }
 
   // Progress Bar
   const pct = currentBudget > 0 ? Math.min(100, Math.round((totalCollected / currentBudget) * 100)) : 0;
@@ -1671,6 +1781,81 @@ function updateLiveStats() {
 
   // Update public volunteers team tally on dashboard
   renderPublicVolunteers();
+  renderPublicDonorWall();
+  renderCategoryBudgetWatch();
+}
+
+function renderPublicDonorWall() {
+  const grid = document.getElementById("publicDonorWallGrid");
+  const countBadge = document.getElementById("publicOptInCount");
+  if (!grid) return;
+
+  const optInDonors = collections.filter(c => 
+    c.isPublicOptIn === true && 
+    (c.status === "RECEIVED" || c.status === "PENDING_VERIFY")
+  );
+
+  if (countBadge) countBadge.innerText = `${optInDonors.length} देणगीदार`;
+
+  if (optInDonors.length === 0) {
+    grid.innerHTML = `<div class="col-span-full py-4 text-center text-slate-400 text-xs italic">पावती भरताना 'नाव दाखवण्यास संमती' निवडलेल्या देणगीदारांची नामावली येथे सन्मानाने दिसेल.</div>`;
+    return;
+  }
+
+  grid.innerHTML = optInDonors.map(d => `
+    <div class="bg-white/90 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex items-center justify-between">
+      <div class="truncate mr-2">
+        <p class="font-bold text-slate-900 text-xs truncate flex items-center gap-1">
+          <span class="text-amber-600">🚩</span> ${d.donorName}
+        </p>
+        <p class="text-[10px] text-slate-500 font-medium">${d.society} (${d.wing}-${d.flat})</p>
+      </div>
+      <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">₹${d.amount.toLocaleString("en-IN")}</span>
+    </div>
+  `).join("");
+}
+
+function renderCategoryBudgetWatch() {
+  const container = document.getElementById("expenseCategoryBudgetBars");
+  if (!container) return;
+
+  const categoryBudgets = {
+    "मंडप व डेकोरेशन": 60000,
+    "ध्वज व भगवे झेंडे": 25000,
+    "प्रसाद व वाटप": 35000,
+    "साउंड व लाईटिंग": 40000,
+    "पोवाडे व व्याख्यान": 25000,
+    "इतर संकीर्ण": 15000
+  };
+
+  const spentByCategory = {};
+  expenses.forEach(e => {
+    const cat = e.category || "इतर संकीर्ण";
+    spentByCategory[cat] = (spentByCategory[cat] || 0) + (parseFloat(e.amount) || 0);
+  });
+
+  const catKeys = Object.keys(categoryBudgets);
+  container.innerHTML = catKeys.map(cat => {
+    const limit = categoryBudgets[cat];
+    const spent = spentByCategory[cat] || 0;
+    const pct = Math.min(100, Math.round((spent / limit) * 100));
+    const isNearLimit = pct >= 85;
+    const isOverLimit = spent > limit;
+    const barColor = isOverLimit ? "bg-rose-600" : (isNearLimit ? "bg-amber-500" : "bg-bhagwa-500");
+    const textColor = isOverLimit ? "text-rose-700 font-bold" : "text-slate-600";
+
+    return `
+      <div>
+        <div class="flex justify-between items-center mb-0.5">
+          <span class="font-semibold text-slate-800">${cat}</span>
+          <span class="${textColor}">₹${spent.toLocaleString("en-IN")} / ₹${limit.toLocaleString("en-IN")} (${pct}%)</span>
+        </div>
+        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+          <div class="${barColor} h-full" style="width: ${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderCollectionsTable(filterQuery = "") {
@@ -1678,12 +1863,14 @@ function renderCollectionsTable(filterQuery = "") {
   tbody.innerHTML = "";
 
   const filtered = collections.filter(c => {
+    if (isFollowUpFilterActive && c.status !== "PLEDGED") return false;
     if (!filterQuery) return true;
     const q = filterQuery.toLowerCase();
     return (
-      c.donorName.toLowerCase().includes(q) ||
-      c.receiptNo.toLowerCase().includes(q) ||
-      c.flat.toLowerCase().includes(q)
+      (c.donorName && c.donorName.toLowerCase().includes(q)) ||
+      (c.receiptNo && c.receiptNo.toLowerCase().includes(q)) ||
+      (c.flat && c.flat.toLowerCase().includes(q)) ||
+      (c.society && c.society.toLowerCase().includes(q))
     );
   });
 
@@ -1705,7 +1892,9 @@ function renderCollectionsTable(filterQuery = "") {
         <button onclick="adminRejectFakeUtr('${c.id}')" class="text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-1.5 py-0.5 rounded font-bold ml-0.5 shadow-xs" title="बनावट असल्यास पावती रद्द करा">❌ फेक</button>
       `;
     } else if (c.status === "CANCELLED_FAKE") {
-      statusBadge = `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-rose-300">❌ रद्द/बनावट</span>`;
+      statusBadge = `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-rose-300" title="${c.cancelledReason || ''}">❌ रद्द/बनावट</span>`;
+    } else if (c.status === "CANCELLED") {
+      statusBadge = `<span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-slate-300" title="${c.cancelledReason || ''}">🚫 रद्द (Cancelled)</span>`;
     } else {
       statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">🟢 ✓ सत्यापित</span>`;
     }
@@ -1729,7 +1918,7 @@ function renderCollectionsTable(filterQuery = "") {
       </td>
       <td class="p-3 font-semibold text-slate-800">${c.donorName}<br><span class="text-[10px] text-slate-400">${c.phone}</span></td>
       <td class="p-3">${c.society} (${c.wing} - ${c.flat})</td>
-      <td class="p-3 font-bold ${c.status === 'CANCELLED_FAKE' ? 'line-through text-slate-400' : (c.status === 'PLEDGED' ? 'text-amber-600' : 'text-emerald-700')}">₹${c.amount.toLocaleString("en-IN")}</td>
+      <td class="p-3 font-bold ${(c.status === 'CANCELLED_FAKE' || c.status === 'CANCELLED') ? 'line-through text-slate-400' : (c.status === 'PLEDGED' ? 'text-amber-600' : 'text-emerald-700')}">₹${c.amount.toLocaleString("en-IN")}</td>
       <td class="p-3 font-mono">${c.mode}${utrInfo}</td>
       <td class="p-3">${statusBadge}</td>
       <td class="p-3 text-slate-500">${c.volunteer}</td>
@@ -1737,12 +1926,13 @@ function renderCollectionsTable(filterQuery = "") {
         <button onclick="viewReceiptDirectly('${c.id}')" class="text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded font-semibold" title="पावती प्रिव्ह्यू व प्रिंट">
           📜 पावती
         </button>
+        ${c.status === 'PLEDGED' ? `<button onclick="sendFollowUpReminder('${c.id}')" class="text-[11px] bg-amber-500 hover:bg-amber-600 text-white font-bold px-2 py-1 rounded ml-1 shadow-2xs" title="स्मरणपत्र (WhatsApp Reminder) पाठवा">🔔 फॉलो-अप</button>` : ''}
         <button onclick="resendWhatsApp('${c.id}')" class="text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded ml-1 font-semibold" title="डोनरला WhatsApp वर पाठवा">
           💬 WhatsApp
         </button>
         ${verifyActionBtns}
-        <button onclick="deleteCollection('${c.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-1 font-bold shadow-2xs" title="फक्त ऍडमिनसाठी: पावती डिलीट करा">
-          🔒 हटवा
+        <button onclick="cancelCollectionWithReason('${c.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-1 font-bold shadow-2xs" title="फक्त खजिनदार/ऍडमिन: पावती कारणासह रद्द करा">
+          🚫 रद्द करा
         </button>
       </td>
     `;
@@ -1754,37 +1944,102 @@ function adminVerifyUtr(id) {
   const item = collections.find(c => c.id === id);
   if (!item) return;
 
-  const pin = prompt("बँक SMS/स्टेटमेंटशी खात्री करण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
+  const pin = prompt("बँक SMS/स्टेटमेंटशी खात्री करण्यासाठी खजिनदार/ऍडमिन पिन टाका:");
   if (pin !== getAdminPin()) {
-    alert("⚠️ चुकीचा ऍडमिन पिन!");
+    alert("⚠️ चुकीचा पिन!");
     return;
   }
 
   item.status = "RECEIVED";
+  item.verifiedBy = "खजिनदार";
+  item.verifiedAt = new Date().toISOString();
   saveCollections(item);
-  alert(`✓ पावती क्र. ${item.receiptNo} (UTR: ${item.transactionRef}) अधिकृतपणे बँकेत सत्यापित झाली!`);
+  if (typeof logAuditEvent === "function") {
+    logAuditEvent("UTR_VERIFY", "COLLECTION", item.id, { receiptNo: item.receiptNo, utr: item.transactionRef }, "खजिनदार");
+  }
+  alert(`✓ पावती क्र. ${item.receiptNo} (UTR: ${item.transactionRef}) अधिकृतपणे बँकेत तपासून सत्यापित (Verified) झाली!`);
 }
 
 function adminRejectFakeUtr(id) {
   const item = collections.find(c => c.id === id);
   if (!item) return;
 
-  const pin = prompt("बनावट UTR पावती रद्द करण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
+  const pin = prompt("बनावट UTR पावती रद्द करण्यासाठी खजिनदार/ऍडमिन पिन टाका:");
   if (pin !== getAdminPin()) {
-    alert("⚠️ चुकीचा ऍडमिन पिन!");
+    alert("⚠️ चुकीचा पिन!");
     return;
   }
 
-  if (confirm(`⚠️ सावधान: पावती क्र. ${item.receiptNo} (UTR: ${item.transactionRef}) बनावट म्हणून रद्द करायची आहे का? या पावतीची ₹${item.amount} रक्कम एकूण हिशोबातून वजा होईल.`)) {
-    item.status = "CANCELLED_FAKE";
-    saveCollections(item);
-    alert(`❌ बनावट UTR रद्द केला गेला! हिशोबातून ₹${item.amount} रक्कम वजा झाली.`);
+  const reason = prompt("पावती रद्द करण्याचे कारण टाका (उदा. बँकेत UTR आला नाही / बनावट स्क्रीनशॉट):", "बँक खात्यात रक्कम जमा नाही (बनावट UTR)");
+  if (!reason) return;
+
+  item.status = "CANCELLED_FAKE";
+  item.cancelledReason = reason;
+  item.cancelledBy = "खजिनदार";
+  item.cancelledAt = new Date().toISOString();
+  saveCollections(item);
+  if (typeof logAuditEvent === "function") {
+    logAuditEvent("RECEIPT_CANCEL", "COLLECTION", item.id, { receiptNo: item.receiptNo, reason: reason }, "खजिनदार");
   }
+  alert(`❌ बनावट UTR पावती रद्द केली गेली! हिशोबातून ₹${item.amount} रक्कम वजा झाली व ऑडिट लॉग सेव्ह झाला.`);
 }
 
 function filterCollections() {
   const q = document.getElementById("searchCollection").value;
   renderCollectionsTable(q);
+}
+
+let isFollowUpFilterActive = false;
+
+function toggleFollowUpFilter() {
+  isFollowUpFilterActive = !isFollowUpFilterActive;
+  const btn = document.getElementById("btnFilterFollowUp");
+  if (btn) {
+    if (isFollowUpFilterActive) {
+      btn.className = "text-xs bg-amber-600 border border-amber-700 font-bold px-3 py-2 rounded-lg text-white flex items-center gap-1.5 shadow-sm";
+    } else {
+      btn.className = "text-xs bg-amber-50 hover:bg-amber-100 border border-amber-300 font-bold px-3 py-2 rounded-lg text-amber-900 flex items-center gap-1.5";
+    }
+  }
+  renderCollectionsTable(document.getElementById("searchCollection")?.value || "");
+}
+
+function sendFollowUpReminder(id) {
+  const item = collections.find(c => c.id === id);
+  if (!item || !item.phone) {
+    alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही!");
+    return;
+  }
+
+  const cleanPhone = getCleanWhatsAppPhone(item.phone);
+  const upiId = (localStorage.getItem("utsav_upi_id") || "shivajiraje@upi").trim();
+  const upiPayUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(getCleanUpiPayeeName())}&am=${item.amount}&cu=INR&tn=ShivJayanti2027`;
+
+  const msg = `🚩 *जय शिवराय! सादर सस्नेह नमस्कार* 🚩\n\n` +
+    `*शिवाजी राजे संघटना — १९ फेब्रुवारी शिवजयंती महोत्सव २०२७*\n\n` +
+    `आदरणीय *${item.donorName}* जी,\n` +
+    `आपण शिवजयंती महोत्सवासाठी *₹${item.amount.toLocaleString("en-IN")}* ची वर्गणी देण्याचे नम्रपणे निश्चित केले होते (पावती क्र. *${item.receiptNo}*).\n\n` +
+    `आपण खालील अधिकृत UPI द्वारे घरबसल्या वर्गणी पाठवू शकता:\n` +
+    `💳 *UPI ID:* \`${upiId}\`\n\n` +
+    `थेट UPI पेमेंट लिंक:\n${upiPayUrl}\n\n` +
+    `पेमेंट झाल्यावर कृपया आलेला १२-अंकी UTR नंबर आम्हाला कळवावा, जेणेकरून आपली अधिकृत डिजिटल पावती त्वरित पाठवण्यात येईल.\n\n` +
+    `॥ जय भवानी । जय शिवाजी ॥\n` +
+    `*शिवाजी राजे संघटना उत्सव समिती*`;
+
+  const encodedMsg = encodeURIComponent(msg);
+  const ua = navigator.userAgent || "";
+  const isTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isMobileUa = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(ua);
+  const isSmallScreen = window.innerWidth <= 1024 || window.screen.width <= 1024;
+  const isMobile = isMobileUa || (isTouchScreen && isSmallScreen);
+
+  const nativeWhatsAppUri = `whatsapp://send?phone=${cleanPhone}&text=${encodedMsg}`;
+
+  if (isMobile) {
+    window.location.href = nativeWhatsAppUri;
+  } else {
+    window.open(`https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`, "_blank");
+  }
 }
 
 function renderExpensesTable() {
@@ -1881,8 +2136,10 @@ function viewReceiptDirectly(id) {
   const qrBox = document.getElementById("receiptQr");
   if (qrBox) {
     qrBox.innerHTML = "";
+    const currentBaseUrl = window.location.origin + window.location.pathname;
+    const directVerifyUrl = `${currentBaseUrl}?receipt=${encodeURIComponent(item.receiptNo)}`;
     new QRCode(qrBox, {
-      text: `https://utsav.app/verify?receipt=${item.receiptNo}&amount=${item.amount}`,
+      text: directVerifyUrl,
       width: 52,
       height: 52
     });
@@ -1910,8 +2167,9 @@ function setupInitialQrs() {
   const qrBox = document.getElementById("receiptQr");
   if (qrBox) {
     qrBox.innerHTML = "";
+    const currentBaseUrl = window.location.origin + window.location.pathname;
     new QRCode(qrBox, {
-      text: "https://utsav.app/verify?receipt=SJ-2027-0001",
+      text: `${currentBaseUrl}?receipt=SJ-2027-0001`,
       width: 52,
       height: 52
     });
@@ -1937,7 +2195,7 @@ function exportCollectionsCsv() {
 // -----------------------------------------------------------------------------
 // 7. ADMIN SECURITY LOCK, VOLUNTEERS & SYSTEM CONFIG
 // -----------------------------------------------------------------------------
-const DEFAULT_ADMIN_PIN = "1930";
+const DEFAULT_ADMIN_PIN = "2027"; // Changed from predictable legacy PIN
 
 function getAdminPin() {
   return localStorage.getItem("utsav_admin_pin") || DEFAULT_ADMIN_PIN;
@@ -2096,6 +2354,7 @@ function addNewVolunteer() {
     photoUrl: tempVolunteerPhotoUrl || ""
   };
 
+  unmarkVolunteerAsDeleted(newVol.id);
   volunteers.push(newVol);
   saveVolunteers(newVol);
 
@@ -2115,7 +2374,7 @@ function deleteVolunteer(id) {
   const vol = volunteers.find(v => v.id === id);
   if (!vol) return;
 
-  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nकार्यकर्ता '${vol.name}' यादीतून काढण्यासाठी ऍडमिन पिन प्रविष्ट करा (Default: 1930):`);
+  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nकार्यकर्ता '${vol.name}' यादीतून काढण्यासाठी ऍडमिन पिन प्रविष्ट करा :`);
   if (pin === null) return;
 
   if (pin.trim() !== getAdminPin()) {
@@ -2124,6 +2383,7 @@ function deleteVolunteer(id) {
   }
 
   if (confirm(`तुम्हाला '${vol.name}' या कार्यकर्त्याला कमिटी यादीतून कायमचे काढायचे आहे का?`)) {
+    markVolunteerAsDeleted(id);
     volunteers = volunteers.filter(v => v.id !== id);
     saveVolunteers();
     if (supabaseClient) {
@@ -2206,49 +2466,78 @@ function saveAdminSettings() {
 }
 
 // -----------------------------------------------------------------------------
-// 8. DATA DELETION & RESET CONTROLS (ADMIN ONLY)
+// 8. AUDIT LOG & RECEIPT CANCELLATION (Replaces Hard Deletes)
 // -----------------------------------------------------------------------------
-async function deleteCollection(id) {
+function getAuditLogs() {
+  try {
+    const raw = localStorage.getItem("utsav_audit_logs");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function logAuditEvent(action, entityType, entityId, details, performedBy = "ऍडमिन") {
+  const log = {
+    id: "log-" + Date.now(),
+    action,
+    entityType,
+    entityId: String(entityId),
+    details,
+    performedBy,
+    timestamp: new Date().toISOString()
+  };
+
+  const logs = getAuditLogs();
+  logs.unshift(log);
+  localStorage.setItem("utsav_audit_logs", JSON.stringify(logs.slice(0, 100)));
+
+  if (supabaseClient) {
+    supabaseClient.from("audit_logs").insert([{
+      action,
+      entity_type: entityType,
+      entity_id: String(entityId),
+      details,
+      performed_by: performedBy
+    }]).then(({ error }) => {
+      if (error) console.warn("Audit log note:", error.message);
+    }).catch(err => console.warn("Audit log catch:", err));
+  }
+}
+
+async function cancelCollectionWithReason(id) {
   const item = collections.find(c => c.id === id);
   if (!item) return;
 
-  // STRICT ADMIN / AUTHORIZED VOLUNTEER AUTHENTICATION
-  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nपावती क्र: ${item.receiptNo}\nदेणगीदार: ${item.donorName} (₹${item.amount})\n\nवर्गणी नोंद डिलीट करण्याचा अधिकार फक्त मुख्य ऍडमिनला आहे.\nकृपया ऍडमिन पिन प्रविष्ट करा (Default: 1930):`);
-
-  if (pin === null) return; // Cancelled
+  const pin = prompt(`🔒 सुरक्षेसाठी खजिनदार/ऍडमिन पिन आवश्यक:\n\nपावती क्र: ${item.receiptNo}\nदेणगीदार: ${item.donorName} (₹${item.amount})\n\nपावती रद्द करण्यासाठी पिन प्रविष्ट करा:`);
+  if (pin === null) return;
 
   if (pin.trim() !== getAdminPin()) {
-    alert("🚨 अनधिकृत कृती (Access Denied)!\n\nचुकीचा ऍडमिन पिन! सामान्य कार्यकर्त्यांना वर्गणी नोंद डिलीट करण्याची परवानगी नाही.\nफक्त मुख्य ऍडमिन किंवा ऍडमिनने अधिकृत केलेला कार्यकर्ता ही पावती डिलीट करू शकतो.");
+    alert("🚨 अनधिकृत कृती! चुकीचा पिन. पावती रद्द करण्याचा अधिकार फक्त खजिनदार/ऍडमिनला आहे.");
     return;
   }
 
-  if (confirm(`⚠️ सावधान: पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) कायमस्वरूपी डिलीट करायची आहे का?\n\nया पावतीची रक्कम एकूण जमा हिशोबातून वजा केली जाईल.`)) {
-    // 1. Permanently register in deleted receipts registry so it NEVER reappears on refresh
-    markReceiptAsDeleted(item.receiptNo, item.id);
-
-    // 2. Remove immediately from active collections
-    collections = collections.filter(c => c.id !== id && c.receiptNo !== item.receiptNo);
-
-    // 3. Save to localStorage & update UI immediately
-    saveCollections();
-    updateNextReceiptNumber();
-
-    // 4. Sync deletion to Supabase cloud by BOTH receipt_no AND id
-    if (supabaseClient) {
-      try {
-        if (item.receiptNo) {
-          await supabaseClient.from("collections_simple").delete().eq("receipt_no", item.receiptNo);
-        }
-        if (id) {
-          await supabaseClient.from("collections_simple").delete().eq("id", id);
-        }
-      } catch (err) {
-        console.warn("Supabase collection delete error:", err);
-      }
-    }
-
-    alert(`✓ पावती क्र. ${item.receiptNo} यशस्वीरीत्या डिलीट केली गेली.`);
+  const reason = prompt(`पावती क्र. ${item.receiptNo} रद्द करण्याचे कारण प्रविष्ट करा:\n(उदा. चुकीची रक्कम, डोनरची विनंती, दुबार नोंद)`, "तांत्रिक चूक / दुबार नोंद");
+  if (!reason) {
+    alert("⚠️ कारण प्रविष्ट न केल्यामुळे पावती रद्द केली नाही.");
+    return;
   }
+
+  if (confirm(`⚠️ खात्री करा: पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) रद्द करायची आहे का?\n\nही रक्कम एकूण जमा रकमेतून वजा होईल परंतु ऑडिट ट्रेलमध्ये कायम राहील.`)) {
+    item.status = "CANCELLED";
+    item.cancelledReason = reason;
+    item.cancelledBy = "ऍडमिन/खजिनदार";
+    item.cancelledAt = new Date().toISOString();
+
+    saveCollections(item);
+    logAuditEvent("RECEIPT_CANCEL", "COLLECTION", item.id, { receiptNo: item.receiptNo, amount: item.amount, reason }, "ऍडमिन/खजिनदार");
+
+    alert(`✓ पावती क्र. ${item.receiptNo} रद्द करण्यात आली आणि ऑडिट लॉगमध्ये सुरक्षित नोंद झाली.`);
+  }
+}
+
+async function deleteCollection(id) {
+  await cancelCollectionWithReason(id);
 }
 
 async function deleteExpense(id) {
@@ -2256,7 +2545,7 @@ async function deleteExpense(id) {
   if (!item) return;
 
   // STRICT ADMIN / AUTHORIZED VOLUNTEER AUTHENTICATION
-  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nखर्च नोंद: ${item.vendor} (₹${item.amount})\n\nखर्च पावती डिलीट करण्याचा अधिकार फक्त मुख्य ऍडमिनला आहे.\nकृपया ऍडमिन पिन प्रविष्ट करा (Default: 1930):`);
+  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nखर्च नोंद: ${item.vendor} (₹${item.amount})\n\nखर्च पावती डिलीट करण्याचा अधिकार फक्त मुख्य ऍडमिनला आहे.\nकृपया ऍडमिन पिन प्रविष्ट करा :`);
 
   if (pin === null) return;
 
@@ -2289,7 +2578,7 @@ async function deleteExpense(id) {
 }
 
 async function confirmResetAllData() {
-  const pin = prompt("डेटा पूर्णपणे रिसेट करण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
+  const pin = prompt("डेटा पूर्णपणे रिसेट करण्यासाठी ऍडमिन पिन टाका :");
   if (pin !== getAdminPin()) {
     alert("⚠️ चुकीचा ऍडमिन पिन! डेटा रिसेट रद्द केला.");
     return;
@@ -2436,6 +2725,14 @@ function subscribeToSupabaseChanges() {
           loadFromSupabase();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "volunteers_simple" },
+        (payload) => {
+          console.log("🔔 Realtime volunteer update from cloud:", payload);
+          loadFromSupabase();
+        }
+      )
       .subscribe();
     console.log("📡 Real-time live subscription active on Supabase");
   } catch (err) {
@@ -2564,10 +2861,10 @@ async function loadFromSupabase() {
       renderCollectionsTable();
       updateNextReceiptNumber();
 
-      // Proactively auto-sync any local collections missing on the cloud
+      // Only sync fresh local collections that are NOT in deleted list and marked as offline/fresh
       const cloudReceipts = new Set(colData.map(r => r.receipt_no));
       collections.forEach(c => {
-        if (!cloudReceipts.has(c.receiptNo)) {
+        if (!cloudReceipts.has(c.receiptNo) && !deletedReceipts.includes(c.id) && c._isLocalOfflineOnly === true) {
           syncCollectionToSupabase(c);
         }
       });
@@ -2575,24 +2872,12 @@ async function loadFromSupabase() {
       console.warn("⚠️ Supabase collections fetch warning (local data preserved):", colErr.message);
     }
 
-    // 2. SMART MERGE EXPENSES: Never wipe out local expenses!
+    // 2. SMART MERGE EXPENSES: Cloud is Single Source of Truth for cross-device sync!
     if (!expErr && Array.isArray(expData)) {
-      const expMap = new Map();
-      expenses.forEach(e => {
-        if (e && e.id && !deletedExpenses.includes(e.id)) {
-          expMap.set(e.id, e);
-        }
-      });
-
-      expData.forEach(r => {
-        if (r.id === "exp-1" || r.id === "exp-2") return;
-        if (deletedExpenses.includes(r.id)) {
-          if (supabaseClient) {
-            supabaseClient.from("expenses_simple").delete().eq("id", r.id).then();
-          }
-          return;
-        }
-        expMap.set(r.id, {
+      // Clean and set expenses strictly from cloud so deleted items on mobile A disappear immediately on mobile B
+      const cloudExpenses = expData
+        .filter(r => r.id !== "exp-1" && r.id !== "exp-2" && !deletedExpenses.includes(r.id))
+        .map(r => ({
           id: r.id,
           category: r.category,
           vendor: r.vendor_name,
@@ -2601,28 +2886,21 @@ async function loadFromSupabase() {
           desc: r.description,
           billUrl: r.bill_image_url,
           createdAt: r.created_at
-        });
-      });
+        }));
 
-      expenses = Array.from(expMap.values()).sort((a, b) => {
+      expenses = cloudExpenses.sort((a, b) => {
         return (b.date || "").localeCompare(a.date || "");
       });
 
       localStorage.setItem("utsav_expenses", JSON.stringify(expenses));
       renderExpensesTable();
-
-      const cloudExpIds = new Set(expData.map(r => r.id));
-      expenses.forEach(e => {
-        if (!cloudExpIds.has(e.id)) {
-          syncExpenseToSupabase(e);
-        }
-      });
     } else if (expErr) {
       console.warn("⚠️ Supabase expenses fetch warning (local data preserved):", expErr.message);
     }
 
     // Load Volunteers from Supabase (for multi-device sync)
     try {
+      const deletedVols = getDeletedVolunteers();
       const { data: volData, error: volErr } = await supabaseClient
         .from("volunteers_simple")
         .select("*")
@@ -2636,7 +2914,8 @@ async function loadFromSupabase() {
             v.id !== "vol-3" &&
             !v.full_name.includes("रोहित पाटील") &&
             !v.full_name.includes("अनिकेत शिंदे") &&
-            !v.full_name.includes("स्वप्नील गायकवाड")
+            !v.full_name.includes("स्वप्नील गायकवाड") &&
+            !deletedVols.includes(v.id)
           )
           .map(v => ({
             id: v.id,
@@ -2797,7 +3076,7 @@ function closeGalleryLightbox() {
 }
 
 function openGalleryUploadModal() {
-  const pin = prompt("गॅलरीमध्ये फोटो जोडण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
+  const pin = prompt("गॅलरीमध्ये फोटो जोडण्यासाठी ऍडमिन पिन टाका :");
   if (pin !== getAdminPin()) {
     alert("⚠️ चुकीचा ऍडमिन पिन! प्रवेश नाकारला.");
     return;
@@ -2861,9 +3140,9 @@ function saveNewGalleryRecord(title, year, type, url) {
 }
 
 function deleteGalleryItem(id) {
-  const pin = prompt("फोटो डिलीट करण्यासाठी ऍडमिन पिन टाका (Default: 1930):");
+  const pin = prompt("फोटो डिलीट करण्यासाठी ऍडमिन पिन टाका :");
   if (pin !== getAdminPin()) {
-    alert("⚠️ चुकीचा ऍडमिन पिन! (Default PIN: 1930)");
+    alert("⚠️ चुकीचा ऍडमिन पिन! ");
     return;
   }
 
@@ -2873,3 +3152,4 @@ function deleteGalleryItem(id) {
     alert("✓ फोटो यशस्वीरीत्या डिलीट झाला!");
   }
 }
+
