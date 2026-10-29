@@ -65,15 +65,44 @@ let galleryItems = [];
 let currentReceiptNumber = "SJ-2027-0001";
 let supabaseClient = null;
 
+// -----------------------------------------------------------------------------
+// CORE UTILITIES: XSS Protection & Indian Standard Time (IST) Helpers
+// -----------------------------------------------------------------------------
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function getLocalDateIso(dateObj = new Date()) {
+  // Use Indian Standard Time (Asia/Kolkata, UTC+05:30)
+  try {
+    const parts = new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(dateObj);
+    const y = parts.find(p => p.type === "year")?.value;
+    const m = parts.find(p => p.type === "month")?.value;
+    const d = parts.find(p => p.type === "day")?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch (e) {}
+  // Fallback: local browser offset
+  const d = new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000);
+  return d.toISOString().split("T")[0];
+}
+
 // Initialize when DOM loads
 document.addEventListener("DOMContentLoaded", async () => {
   lucide.createIcons();
   
-  // 1. Immediately check if page was opened via WhatsApp Digital Receipt Link (?receipt=SJ-2027-0001)
-  // to avoid seeing the dashboard layout before the receipt loads
-  checkUrlForReceiptVerification();
-
-  const sbConnected = initSupabaseFromStorage(); // Try Supabase first
+  // 1. Initialize Supabase Client and Local Data FIRST before checking URL
+  const sbConnected = initSupabaseFromStorage();
   loadStoredData();
   loadVolunteers();
   loadOrgBrandSettings();
@@ -85,13 +114,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   populateVolunteerDropdown();
   loadGallery();
 
-  // Initialize today's date in expense date picker
+  // 2. NOW check if page was opened via WhatsApp Digital Receipt Link (?receipt=SJ-2027-0001)
+  // Data is loaded, so verification lookup will succeed immediately!
+  await checkUrlForReceiptVerification();
+
+  // Initialize today's date in expense date picker with local date
   const expenseDateInput = document.getElementById("expenseDate");
   if (expenseDateInput && !expenseDateInput.value) {
-    expenseDateInput.value = new Date().toISOString().split("T")[0];
+    expenseDateInput.value = getLocalDateIso();
   }
 
-  // If Supabase is connected, automatically fetch latest cloud data & subscribe to live updates
+  // 3. If Supabase is connected, automatically fetch latest cloud data & subscribe to live updates
   if (sbConnected) {
     await loadFromSupabase();
     subscribeToSupabaseChanges();
@@ -261,8 +294,8 @@ function renderPublicVolunteers() {
     const receiptCount = volCollections.length;
 
     const photoHtml = v.photoUrl 
-      ? `<img src="${v.photoUrl}" alt="${v.name}" class="w-9 h-9 rounded-full object-cover border-2 border-orange-400 shadow-xs">`
-      : `<div class="w-9 h-9 rounded-full bg-gradient-to-br from-bhagwa-500 to-amber-600 text-white font-bold flex items-center justify-center text-xs shadow-xs border border-orange-300">${v.name.charAt(0)}</div>`;
+      ? `<img src="${escapeHtml(v.photoUrl)}" alt="${escapeHtml(v.name)}" class="w-9 h-9 rounded-full object-cover border-2 border-orange-400 shadow-xs">`
+      : `<div class="w-9 h-9 rounded-full bg-gradient-to-br from-bhagwa-500 to-amber-600 text-white font-bold flex items-center justify-center text-xs shadow-xs border border-orange-300">${escapeHtml(v.name.charAt(0))}</div>`;
 
     const card = document.createElement("div");
     card.className = "bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs hover:border-orange-300 transition flex flex-col justify-between";
@@ -272,8 +305,8 @@ function renderPublicVolunteers() {
           <div class="flex items-center gap-2.5">
             ${photoHtml}
             <div>
-              <h4 class="text-xs font-bold text-slate-800 leading-tight">${v.name}</h4>
-              <p class="text-[10px] text-slate-400">${v.area || "सोसायटी परिसर"}</p>
+              <h4 class="text-xs font-bold text-slate-800 leading-tight">${escapeHtml(v.name)}</h4>
+              <p class="text-[10px] text-slate-400">${escapeHtml(v.area || "सोसायटी परिसर")}</p>
             </div>
           </div>
           <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
@@ -282,8 +315,8 @@ function renderPublicVolunteers() {
         </div>
 
         <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-          <a href="tel:${v.phone}" class="text-[11px] font-mono font-semibold text-slate-600 hover:text-bhagwa-700 flex items-center gap-1">
-            <i data-lucide="phone" class="w-3 h-3 text-slate-400"></i> ${v.phone}
+          <a href="tel:${escapeHtml(v.phone)}" class="text-[11px] font-mono font-semibold text-slate-600 hover:text-bhagwa-700 flex items-center gap-1">
+            <i data-lucide="phone" class="w-3 h-3 text-slate-400"></i> ${escapeHtml(v.phone)}
           </a>
           <span class="font-extrabold text-emerald-700">₹${totalAmount.toLocaleString("en-IN")}</span>
         </div>
@@ -394,12 +427,10 @@ function loadStoredData() {
     try {
       collections = JSON.parse(storedCollections);
       if (!Array.isArray(collections)) collections = [];
-      // Clean out old dummy demo entries and any deleted records by unique ID
+      // Clean out deleted records by unique ID
       collections = collections.filter(c => 
         c && 
-        c.id !== "col-1" && 
-        c.id !== "col-2" && 
-        c.donorName !== "संजय देशमुख" &&
+        c.id &&
         !deletedReceipts.includes(c.id)
       );
     } catch (e) {
@@ -414,8 +445,8 @@ function loadStoredData() {
       expenses = JSON.parse(storedExpenses);
       if (!Array.isArray(expenses)) expenses = [];
       expenses = expenses.filter(e => 
-        e.id !== "exp-1" && 
-        e.id !== "exp-2" &&
+        e && 
+        e.id &&
         !deletedExpenses.includes(e.id)
       );
     } catch (e) {
@@ -711,6 +742,24 @@ function setDirectUpiAmount(amount) {
   renderQrSafely(box, upiUrl, 160);
 }
 
+function handleDirectCustomAmt(val) {
+  const amt = parseFloat(val);
+  if (!isNaN(amt) && amt > 0) {
+    currentDirectAmount = amt;
+    const upiUrl = buildStandardUpiUrl(amt);
+    const displayEl = document.getElementById("directModalAmountDisplay");
+    if (displayEl) {
+      displayEl.innerText = `स्कॅन करा: ₹${amt.toLocaleString("en-IN")}.00`;
+    }
+    // Deselect preset chips
+    document.querySelectorAll(".amt-chip").forEach(btn => {
+      btn.className = "amt-chip px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 hover:border-bhagwa-500 bg-slate-50 text-slate-700";
+    });
+    const box = document.getElementById("directModalQrBox");
+    renderQrSafely(box, upiUrl, 160);
+  }
+}
+
 function setDirectUpiOpenAmount() {
   // Amount is null -> generates open/flexible UPI intent without &am= parameter
   const upiUrl = buildStandardUpiUrl(null);
@@ -795,7 +844,7 @@ function validateUtrLive(val) {
   }
 }
 
-function handleDonationSubmit(e) {
+async function handleDonationSubmit(e) {
   e.preventDefault();
 
   const donorName = document.getElementById("donorName").value.trim();
@@ -808,7 +857,8 @@ function handleDonationSubmit(e) {
   const volunteer = document.getElementById("volunteerSelect") ? document.getElementById("volunteerSelect").value : "कार्यकर्ता";
   
   const now = new Date();
-  const todayIso = now.toISOString().split("T")[0];
+  // Accurate IST Date (solves UTC date mismatch before 05:30 AM IST)
+  const todayIso = getLocalDateIso(now);
   const dateFormatted = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
   const nowTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
   const fullDateTime = `${dateFormatted} | ${nowTime}`;
@@ -860,9 +910,22 @@ function handleDonationSubmit(e) {
 
   const isOptIn = document.getElementById("donorOptInCheck") ? document.getElementById("donorOptInCheck").checked : false;
 
+  // Collision-free Receipt Number via atomic cloud sequence
+  let finalReceiptNo = currentReceiptNumber;
+  if (supabaseClient) {
+    try {
+      const { data: rpcNo, error: rpcErr } = await supabaseClient.rpc("get_next_receipt_number");
+      if (!rpcErr && rpcNo) {
+        finalReceiptNo = rpcNo;
+      }
+    } catch (re) {
+      console.warn("RPC receipt sequence fallback:", re);
+    }
+  }
+
   const newRecord = {
-    id: "col-" + Date.now(),
-    receiptNo: currentReceiptNumber,
+    id: "col-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+    receiptNo: finalReceiptNo,
     donorName,
     phone,
     society,
@@ -877,13 +940,15 @@ function handleDonationSubmit(e) {
     date: todayIso,
     time: nowTime,
     dateTime: fullDateTime,
-    createdAt: now.toISOString()
+    createdAt: now.toISOString(),
+    _isLocalOfflineOnly: !supabaseClient
   };
 
   // ONLY NOW: Add to collections register & persist
   unmarkReceiptAsDeleted(newRecord.receiptNo, newRecord.id);
   collections.unshift(newRecord);
-  saveCollections();
+  saveCollections(newRecord);
+  updateNextReceiptNumber();
 
   // Update Live Preview Card
   document.getElementById("prevReceiptNo").innerText = newRecord.receiptNo;
@@ -1372,48 +1437,53 @@ async function enterStandaloneReceiptMode(receiptNo) {
   let item = collections.find(c => c.receiptNo && c.receiptNo.toUpperCase() === cleanReceiptNo);
 
   // If not found in local collections (e.g. mobile donor opened link on fresh browser),
-  // fetch directly from Supabase Cloud
-  if (!item && supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from("collections_simple")
-        .select("*")
-        .ilike("receipt_no", cleanReceiptNo)
-        .maybeSingle();
+  // ensure Supabase is initialized and fetch directly from Supabase Cloud
+  if (!item) {
+    if (!supabaseClient) {
+      initSupabaseFromStorage();
+    }
+    if (supabaseClient) {
+      try {
+        const { data, error } = await supabaseClient
+          .from("collections_simple")
+          .select("*")
+          .ilike("receipt_no", cleanReceiptNo)
+          .maybeSingle();
 
-      if (data && !error) {
-        let cTime = "";
-        if (data.created_at) {
-          try {
-            cTime = new Date(data.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-          } catch (e) {}
+        if (data && !error) {
+          let cTime = "";
+          if (data.created_at) {
+            try {
+              cTime = new Date(data.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+            } catch (e) {}
+          }
+          item = {
+            id: data.id,
+            receiptNo: data.receipt_no,
+            donorName: data.donor_name,
+            phone: data.phone,
+            society: data.society,
+            wing: data.wing,
+            flat: data.flat,
+            amount: parseFloat(data.amount),
+            mode: data.payment_mode,
+            status: data.payment_status,
+            volunteer: data.volunteer_name,
+            transactionRef: data.utr_number || "",
+            utr: data.utr_number || "",
+            date: data.collected_date,
+            time: cTime,
+            createdAt: data.created_at
+          };
+          collections.unshift(item);
         }
-        item = {
-          id: data.id,
-          receiptNo: data.receipt_no,
-          donorName: data.donor_name,
-          phone: data.phone,
-          society: data.society,
-          wing: data.wing,
-          flat: data.flat,
-          amount: parseFloat(data.amount),
-          mode: data.payment_mode,
-          status: data.payment_status,
-          volunteer: data.volunteer_name,
-          transactionRef: data.utr_number || "",
-          utr: data.utr_number || "",
-          date: data.collected_date,
-          time: cTime,
-          createdAt: data.created_at
-        };
-        collections.unshift(item);
+      } catch (e) {
+        console.warn("Supabase single receipt fetch warning:", e);
       }
-    } catch (e) {
-      console.warn("Supabase single receipt fetch warning:", e);
     }
   }
 
-  // 4. Render Receipt or Error
+  // 4. Render Receipt or Error (Security: Strictly reject forged URL parameters)
   if (loading) loading.classList.add("hidden");
 
   if (item) {
@@ -1428,44 +1498,13 @@ async function enterStandaloneReceiptMode(receiptNo) {
       }, 700);
     }
   } else {
-    // Check if URL has fallback parameters
-    const params = new URLSearchParams(window.location.search);
-    const fallbackAmt = params.get("amount") || params.get("amt");
-    const fallbackName = params.get("name") || params.get("donor");
-    if (fallbackAmt) {
-      const now = new Date();
-      const dStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
-      const tStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-      const fallbackItem = {
-        receiptNo: cleanReceiptNo,
-        donorName: fallbackName || "सत्यापित देणगीदार",
-        society: "शिवाजी पार्क",
-        wing: "",
-        flat: "",
-        amount: parseFloat(fallbackAmt),
-        mode: "VERIFIED",
-        status: "RECEIVED",
-        volunteer: "अधिकृत कमिटी",
-        transactionRef: "",
-        date: now.toISOString().split("T")[0],
-        time: tStr,
-        dateTime: `${dStr} | ${tStr}`,
-        createdAt: now.toISOString()
-      };
-      populateStandaloneReceiptCard(fallbackItem);
-      if (card) card.classList.remove("hidden");
-
-      if (params.get("download") === "pdf" || params.get("pdf") === "true") {
-        setTimeout(() => {
-          downloadOrPrintPdfReceipt();
-        }, 700);
+    // Authentic validation: Show error for non-existent or cancelled receipts
+    if (errorBox) {
+      const errorText = document.getElementById("receiptDocErrorText");
+      if (errorText) {
+        errorText.innerText = `पावती क्रमांक "${receiptNo}" सापडला नाही किंवा ही पावती रद्द करण्यात आली आहे. कृपया अधिकृत पावती क्रमांक तपासा.`;
       }
-    } else {
-      if (errorBox) {
-        const errorText = document.getElementById("receiptDocErrorText");
-        if (errorText) errorText.innerText = `पावती क्रमांक "${receiptNo}" सापडला नाही. कृपया पावती क्रमांक तपासून पुन्हा प्रयत्न करा.`;
-        errorBox.classList.remove("hidden");
-      }
+      errorBox.classList.remove("hidden");
     }
   }
 
@@ -1806,9 +1845,9 @@ function renderPublicDonorWall() {
     <div class="bg-white/90 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex items-center justify-between">
       <div class="truncate mr-2">
         <p class="font-bold text-slate-900 text-xs truncate flex items-center gap-1">
-          <span class="text-amber-600">🚩</span> ${d.donorName}
+          <span class="text-amber-600">🚩</span> ${escapeHtml(d.donorName)}
         </p>
-        <p class="text-[10px] text-slate-500 font-medium">${d.society} (${d.wing}-${d.flat})</p>
+        <p class="text-[10px] text-slate-500 font-medium">${escapeHtml(d.society)} (${escapeHtml(d.wing)}-${escapeHtml(d.flat)})</p>
       </div>
       <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">₹${d.amount.toLocaleString("en-IN")}</span>
     </div>
@@ -1911,27 +1950,27 @@ function renderCollectionsTable(filterQuery = "") {
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
-      <td class="p-3 font-mono font-bold text-bhagwa-700">${c.receiptNo}</td>
+      <td class="p-3 font-mono font-bold text-bhagwa-700">${escapeHtml(c.receiptNo)}</td>
       <td class="p-3 text-xs text-slate-700 whitespace-nowrap">
-        <span class="font-bold text-slate-900 block font-mono text-[11px]">${dPart}</span>
-        ${tPart ? `<span class="text-[10px] text-slate-500 font-semibold block">${tPart}</span>` : ''}
+        <span class="font-bold text-slate-900 block font-mono text-[11px]">${escapeHtml(dPart)}</span>
+        ${tPart ? `<span class="text-[10px] text-slate-500 font-semibold block">${escapeHtml(tPart)}</span>` : ''}
       </td>
-      <td class="p-3 font-semibold text-slate-800">${c.donorName}<br><span class="text-[10px] text-slate-400">${c.phone}</span></td>
-      <td class="p-3">${c.society} (${c.wing} - ${c.flat})</td>
+      <td class="p-3 font-semibold text-slate-800">${escapeHtml(c.donorName)}<br><span class="text-[10px] text-slate-400">${escapeHtml(c.phone)}</span></td>
+      <td class="p-3">${escapeHtml(c.society)} (${escapeHtml(c.wing)} - ${escapeHtml(c.flat)})</td>
       <td class="p-3 font-bold ${(c.status === 'CANCELLED_FAKE' || c.status === 'CANCELLED') ? 'line-through text-slate-400' : (c.status === 'PLEDGED' ? 'text-amber-600' : 'text-emerald-700')}">₹${c.amount.toLocaleString("en-IN")}</td>
-      <td class="p-3 font-mono">${c.mode}${utrInfo}</td>
+      <td class="p-3 font-mono">${escapeHtml(c.mode)}${utrInfo}</td>
       <td class="p-3">${statusBadge}</td>
-      <td class="p-3 text-slate-500">${c.volunteer}</td>
+      <td class="p-3 text-slate-500">${escapeHtml(c.volunteer)}</td>
       <td class="p-3 whitespace-nowrap">
-        <button onclick="viewReceiptDirectly('${c.id}')" class="text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded font-semibold" title="पावती प्रिव्ह्यू व प्रिंट">
+        <button onclick="viewReceiptDirectly('${escapeHtml(c.id)}')" class="text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded font-semibold" title="पावती प्रिव्ह्यू व प्रिंट">
           📜 पावती
         </button>
-        ${c.status === 'PLEDGED' ? `<button onclick="sendFollowUpReminder('${c.id}')" class="text-[11px] bg-amber-500 hover:bg-amber-600 text-white font-bold px-2 py-1 rounded ml-1 shadow-2xs" title="स्मरणपत्र (WhatsApp Reminder) पाठवा">🔔 फॉलो-अप</button>` : ''}
-        <button onclick="resendWhatsApp('${c.id}')" class="text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded ml-1 font-semibold" title="डोनरला WhatsApp वर पाठवा">
+        ${c.status === 'PLEDGED' ? `<button onclick="sendFollowUpReminder('${escapeHtml(c.id)}')" class="text-[11px] bg-amber-500 hover:bg-amber-600 text-white font-bold px-2 py-1 rounded ml-1 shadow-2xs" title="स्मरणपत्र (WhatsApp Reminder) पाठवा">🔔 फॉलो-अप</button>` : ''}
+        <button onclick="resendWhatsApp('${escapeHtml(c.id)}')" class="text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded ml-1 font-semibold" title="डोनरला WhatsApp वर पाठवा">
           💬 WhatsApp
         </button>
         ${verifyActionBtns}
-        <button onclick="cancelCollectionWithReason('${c.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-1 font-bold shadow-2xs" title="फक्त खजिनदार/ऍडमिन: पावती कारणासह रद्द करा">
+        <button onclick="cancelCollectionWithReason('${escapeHtml(c.id)}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-1 font-bold shadow-2xs" title="फक्त खजिनदार/ऍडमिन: पावती कारणासह रद्द करा">
           🚫 रद्द करा
         </button>
       </td>
@@ -2057,19 +2096,19 @@ function renderExpensesTable() {
 
   expenses.forEach(e => {
     const billBtn = e.billUrl 
-      ? `<button onclick="viewBillByExpenseId('${e.id}')" class="text-bhagwa-600 underline font-semibold cursor-pointer">बिल पाहा</button>`
+      ? `<button onclick="viewBillByExpenseId('${escapeHtml(e.id)}')" class="text-bhagwa-600 underline font-semibold cursor-pointer">बिल पाहा</button>`
       : `<span class="text-slate-400">फोटो नाही</span>`;
 
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
-      <td class="p-2.5 font-mono text-slate-500">${e.date || "-"}</td>
-      <td class="p-2.5 font-semibold text-slate-800">${e.category || "-"}</td>
-      <td class="p-2.5">${e.vendor || "-"}<br><span class="text-[10px] text-slate-400">${e.desc || ""}</span></td>
+      <td class="p-2.5 font-mono text-slate-500">${escapeHtml(e.date || "-")}</td>
+      <td class="p-2.5 font-semibold text-slate-800">${escapeHtml(e.category || "-")}</td>
+      <td class="p-2.5">${escapeHtml(e.vendor || "-")}<br><span class="text-[10px] text-slate-400">${escapeHtml(e.desc || "")}</span></td>
       <td class="p-2.5 font-bold text-rose-700">₹${(e.amount || 0).toLocaleString("en-IN")}</td>
       <td class="p-2.5 whitespace-nowrap">
         ${billBtn}
-        <button onclick="deleteExpense('${e.id}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-2 font-bold shadow-2xs" title="फक्त ऍडमिनसाठी: खर्च नोंद हटवा">
+        <button onclick="deleteExpense('${escapeHtml(e.id)}')" class="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded ml-2 font-bold shadow-2xs" title="फक्त ऍडमिनसाठी: खर्च नोंद हटवा">
           🔒 हटवा
         </button>
       </td>
@@ -2682,12 +2721,18 @@ async function syncCollectionToSupabase(col) {
       volunteer_name: col.volunteer,
       utr_number: col.utr || col.transactionRef || null,
       collected_date: col.date,
+      is_public_opt_in: col.isPublicOptIn || false,
+      cancelled_reason: col.cancelledReason || null,
+      cancelled_by: col.cancelledBy || null,
+      cancelled_at: col.cancelledAt || null,
+      verified_by: col.verifiedBy || null,
+      verified_at: col.verifiedAt || null,
       created_at: col.createdAt || new Date().toISOString()
     };
 
-    let { error } = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "receipt_no" });
+    let { error } = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "id" });
     if (error) {
-      const retry = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "id" });
+      const retry = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "receipt_no" });
       error = retry.error;
     }
 
@@ -2695,6 +2740,9 @@ async function syncCollectionToSupabase(col) {
       console.warn("Supabase sync error (collection):", error.message);
       return false;
     }
+    // Mark as synced to cloud
+    col._isLocalOfflineOnly = false;
+    localStorage.setItem("utsav_collections", JSON.stringify(collections));
     console.log("☁️ Collection synced to Supabase:", col.receiptNo);
     return true;
   } catch (e) {
@@ -2809,27 +2857,13 @@ async function loadFromSupabase() {
     const deletedReceipts = getDeletedReceipts();
     const deletedExpenses = getDeletedExpenses();
 
-    // 1. SMART MERGE COLLECTIONS: Never overwrite local records with empty array!
+    // 1. SMART MERGE COLLECTIONS: Clean & Realtime Multi-Device Sync
     if (!colErr && Array.isArray(colData)) {
       const mergedMap = new Map();
 
-      // Keep all valid local collections that are not marked as deleted
-      collections.forEach(c => {
-        if (c && c.receiptNo && !deletedReceipts.includes(c.id)) {
-          mergedMap.set(c.receiptNo, c);
-        }
-      });
-
-      // Merge in cloud data
+      // First add cloud records (Cloud is Single Source of Truth for verified history)
       colData.forEach(r => {
-        if (r.id === "col-1" || r.id === "col-2" || r.donor_name === "संजय देशमुख") return;
-        if (deletedReceipts.includes(r.id)) {
-          if (supabaseClient) {
-            if (r.receipt_no) supabaseClient.from("collections_simple").delete().eq("receipt_no", r.receipt_no).then();
-            if (r.id) supabaseClient.from("collections_simple").delete().eq("id", r.id).then();
-          }
-          return;
-        }
+        if (!r || !r.id || deletedReceipts.includes(r.id)) return;
 
         const cloudItem = {
           id: r.id,
@@ -2845,11 +2879,30 @@ async function loadFromSupabase() {
           volunteer: r.volunteer_name,
           transactionRef: r.utr_number || "",
           utr: r.utr_number || "",
+          isPublicOptIn: r.is_public_opt_in || false,
+          cancelledReason: r.cancelled_reason || null,
+          cancelledBy: r.cancelled_by || null,
+          cancelledAt: r.cancelled_at || null,
+          verifiedBy: r.verified_by || null,
+          verifiedAt: r.verified_at || null,
           date: r.collected_date,
-          createdAt: r.created_at
+          createdAt: r.created_at,
+          _isLocalOfflineOnly: false
         };
 
         mergedMap.set(r.receipt_no, cloudItem);
+      });
+
+      // Keep only genuine pending offline local collections that haven't reached cloud yet
+      const cloudReceipts = new Set(colData.map(r => r.receipt_no));
+      const pendingOffline = [];
+      collections.forEach(c => {
+        if (c && c.receiptNo && !deletedReceipts.includes(c.id)) {
+          if (!cloudReceipts.has(c.receiptNo) && c._isLocalOfflineOnly === true) {
+            mergedMap.set(c.receiptNo, c);
+            pendingOffline.push(c);
+          }
+        }
       });
 
       collections = Array.from(mergedMap.values()).sort((a, b) => {
@@ -2861,12 +2914,9 @@ async function loadFromSupabase() {
       renderCollectionsTable();
       updateNextReceiptNumber();
 
-      // Only sync fresh local collections that are NOT in deleted list and marked as offline/fresh
-      const cloudReceipts = new Set(colData.map(r => r.receipt_no));
-      collections.forEach(c => {
-        if (!cloudReceipts.has(c.receiptNo) && !deletedReceipts.includes(c.id) && c._isLocalOfflineOnly === true) {
-          syncCollectionToSupabase(c);
-        }
+      // Push any pending offline records to cloud now that connection is active
+      pendingOffline.forEach(c => {
+        syncCollectionToSupabase(c);
       });
     } else if (colErr) {
       console.warn("⚠️ Supabase collections fetch warning (local data preserved):", colErr.message);
@@ -2876,7 +2926,7 @@ async function loadFromSupabase() {
     if (!expErr && Array.isArray(expData)) {
       // Clean and set expenses strictly from cloud so deleted items on mobile A disappear immediately on mobile B
       const cloudExpenses = expData
-        .filter(r => r.id !== "exp-1" && r.id !== "exp-2" && !deletedExpenses.includes(r.id))
+        .filter(r => r && r.id && !deletedExpenses.includes(r.id))
         .map(r => ({
           id: r.id,
           category: r.category,
