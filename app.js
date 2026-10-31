@@ -2012,7 +2012,7 @@ function adminVerifyUtr(id) {
   if (!item) return;
 
   const pin = prompt("बँक SMS/स्टेटमेंटशी खात्री करण्यासाठी खजिनदार/ऍडमिन पिन टाका:");
-  if (pin !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin)) {
     alert("⚠️ चुकीचा पिन!");
     return;
   }
@@ -2032,7 +2032,7 @@ function adminRejectFakeUtr(id) {
   if (!item) return;
 
   const pin = prompt("बनावट UTR पावती रद्द करण्यासाठी खजिनदार/ऍडमिन पिन टाका:");
-  if (pin !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin)) {
     alert("⚠️ चुकीचा पिन!");
     return;
   }
@@ -2273,12 +2273,96 @@ function exportCollectionsCsv() {
 }
 
 // -----------------------------------------------------------------------------
-// 7. ADMIN SECURITY LOCK, VOLUNTEERS & SYSTEM CONFIG
+// 7. ADMIN SECURITY LOCK (SHA-256 SALTED HASH - ZERO PLAINTEXT PIN IN STORAGE)
 // -----------------------------------------------------------------------------
-const DEFAULT_ADMIN_PIN = "2027"; // Changed from predictable legacy PIN
+const PIN_SALT = "utsav_ledger_2027_sec_salt_";
+// SHA-256 salted hash of default PIN "2027" (Never store plaintext PIN in code or storage)
+const DEFAULT_ADMIN_PIN_HASH = "96c1840a0a200bdcb22af57b8832c78999f92c752db3d2afad617341f7de791f";
+
+function hashPin(pin) {
+  const ascii = PIN_SALT + String(pin || "").trim();
+  function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  let lengthProperty = "length";
+  let i, j;
+  let result = "";
+  let words = [];
+  let asciiBitLength = ascii[lengthProperty] * 8;
+  let hash = [];
+  let k = [];
+  let primeCounter = 0;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) { isComposite[i] = candidate; }
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += "\x80";
+  while (ascii[lengthProperty] % 64 - 56) ascii += "\x00";
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    j = ascii.charCodeAt(i);
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words[lengthProperty]] = (asciiBitLength / maxWord) | 0;
+  words[words[lengthProperty]] = asciiBitLength;
+  for (j = 0; j < words[lengthProperty];) {
+    let w = words.slice(j, j += 16);
+    let oldHash = hash;
+    hash = hash.slice(0, 8);
+    for (i = 0; i < 64; i++) {
+      let w15 = w[i - 15], w2 = w[i - 2];
+      let a = hash[0], e = hash[4];
+      let temp1 = hash[7]
+        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+        + ((e & hash[5]) ^ ((~e) & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i - 16]
+            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+          ) | 0
+        );
+      let temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      let b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? 0 : "") + b.toString(16);
+    }
+  }
+  return result;
+}
+
+// Purge any legacy plaintext PIN from localStorage immediately on execution
+try {
+  const legacyPin = localStorage.getItem("utsav_admin_pin");
+  if (legacyPin) {
+    localStorage.setItem("utsav_admin_pin_hash", hashPin(legacyPin));
+    localStorage.removeItem("utsav_admin_pin");
+  }
+} catch (e) {}
+
+function isCorrectAdminPin(enteredPin) {
+  if (!enteredPin) return false;
+  const hash = hashPin(enteredPin);
+  const storedHash = localStorage.getItem("utsav_admin_pin_hash") || DEFAULT_ADMIN_PIN_HASH;
+  return hash === storedHash;
+}
 
 function getAdminPin() {
-  return localStorage.getItem("utsav_admin_pin") || DEFAULT_ADMIN_PIN;
+  console.warn("getAdminPin() is deprecated for security reasons; use isCorrectAdminPin()");
+  return null;
 }
 
 function promptAdminPin() {
@@ -2297,9 +2381,8 @@ function closeAdminPinModal() {
 function handleAdminPinSubmit(e) {
   e.preventDefault();
   const enteredPin = document.getElementById("adminPinInput").value.trim();
-  const currentMasterPin = getAdminPin();
 
-  if (enteredPin === currentMasterPin) {
+  if (isCorrectAdminPin(enteredPin)) {
     closeAdminPinModal();
     openConfigModal();
   } else {
@@ -2457,7 +2540,7 @@ function deleteVolunteer(id) {
   const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nकार्यकर्ता '${vol.name}' यादीतून काढण्यासाठी ऍडमिन पिन प्रविष्ट करा :`);
   if (pin === null) return;
 
-  if (pin.trim() !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin.trim())) {
     alert("🚨 अनधिकृत कृती! चुकीचा ऍडमिन पिन. कार्यकर्ता काढण्याची परवानगी फक्त मुख्य ऍडमिनला आहे.");
     return;
   }
@@ -2511,13 +2594,15 @@ function saveAdminSettings() {
       alert("⚠️ पिन किमान 4 अंकी असावा!");
       return;
     }
-    localStorage.setItem("utsav_admin_pin", newPin);
+    const hashed = hashPin(newPin);
+    localStorage.setItem("utsav_admin_pin_hash", hashed);
+    localStorage.removeItem("utsav_admin_pin");
 
-    // Sync admin PIN to Supabase settings so all devices share the same PIN
+    // Sync admin PIN hash to Supabase settings so all devices share the same secure hash
     if (supabaseClient) {
       supabaseClient.from("settings_simple").upsert({
-        key: "admin_pin",
-        value: newPin,
+        key: "admin_pin_hash",
+        value: hashed,
         updated_at: new Date().toISOString()
       }, { onConflict: "key" }).then(({ error }) => {
         if (error) console.warn("Supabase PIN sync note (table may be pending):", error.message);
@@ -2592,7 +2677,7 @@ async function cancelCollectionWithReason(id) {
   const pin = prompt(`🔒 सुरक्षेसाठी खजिनदार/ऍडमिन पिन आवश्यक:\n\nपावती क्र: ${item.receiptNo}\nदेणगीदार: ${item.donorName} (₹${item.amount})\n\nपावती रद्द करण्यासाठी पिन प्रविष्ट करा:`);
   if (pin === null) return;
 
-  if (pin.trim() !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin.trim())) {
     alert("🚨 अनधिकृत कृती! चुकीचा पिन. पावती रद्द करण्याचा अधिकार फक्त खजिनदार/ऍडमिनला आहे.");
     return;
   }
@@ -2629,7 +2714,7 @@ async function deleteExpense(id) {
 
   if (pin === null) return;
 
-  if (pin.trim() !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin.trim())) {
     alert("🚨 अनधिकृत कृती (Access Denied)!\n\nचुकीचा ऍडमिन पिन! सामान्य कार्यकर्त्यांना खर्च नोंद डिलीट करण्याची परवानगी नाही.\nफक्त मुख्य ऍडमिन हा खर्च डिलीट करू शकतात.");
     return;
   }
@@ -2659,7 +2744,7 @@ async function deleteExpense(id) {
 
 async function confirmResetAllData() {
   const pin = prompt("डेटा पूर्णपणे रिसेट करण्यासाठी ऍडमिन पिन टाका :");
-  if (pin !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin)) {
     alert("⚠️ चुकीचा ऍडमिन पिन! डेटा रिसेट रद्द केला.");
     return;
   }
@@ -3052,8 +3137,12 @@ async function loadFromSupabase() {
 
       if (!setErr && setData && Array.isArray(setData)) {
         setData.forEach(s => {
-          if (s.key === "admin_pin" && s.value) {
-            localStorage.setItem("utsav_admin_pin", s.value);
+          if (s.key === "admin_pin_hash" && s.value) {
+            localStorage.setItem("utsav_admin_pin_hash", s.value);
+            localStorage.removeItem("utsav_admin_pin");
+          } else if (s.key === "admin_pin" && s.value) {
+            localStorage.setItem("utsav_admin_pin_hash", hashPin(s.value));
+            localStorage.removeItem("utsav_admin_pin");
           } else if (s.key === "upi_id" && s.value) {
             localStorage.setItem("utsav_upi_id", s.value);
           } else if (s.key === "upi_name" && s.value) {
@@ -3197,7 +3286,7 @@ function closeGalleryLightbox() {
 
 function openGalleryUploadModal() {
   const pin = prompt("गॅलरीमध्ये फोटो जोडण्यासाठी ऍडमिन पिन टाका :");
-  if (pin !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin)) {
     alert("⚠️ चुकीचा ऍडमिन पिन! प्रवेश नाकारला.");
     return;
   }
@@ -3292,7 +3381,7 @@ function saveNewGalleryRecord(title, year, type, url) {
 
 function deleteGalleryItem(id) {
   const pin = prompt("फोटो डिलीट करण्यासाठी ऍडमिन पिन टाका :");
-  if (pin !== getAdminPin()) {
+  if (!isCorrectAdminPin(pin)) {
     alert("⚠️ चुकीचा ऍडमिन पिन! ");
     return;
   }

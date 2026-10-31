@@ -1982,7 +1982,27 @@
     <p>🚩 <strong>शिवाजी राजे संघटना</strong> | १९ फेब्रुवारी शिवजयंती महोत्सव व्यवस्थापन व पारदर्शक हिशोब</p>
   </footer>
 
+  <!-- Client Security & DevTools Deterrent Script -->
+  <script>
+    // Prevent Right-Click Context Menu to deter casual page element inspection
+    document.addEventListener('contextmenu', function(e) {
+      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      e.preventDefault();
+    });
+
+    // Deter Common DevTools Keyboard Shortcuts (F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U)
+    document.addEventListener('keydown', function(e) {
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+      ) {
+        e.preventDefault();
+      }
+    });
+  </script>
+
   <!-- App Script with cache-busting -->
-  <script src="app.js?v=4.2"></script>
+  <script src="app.js?v=4.3"></script>
 </body>
 </html>
