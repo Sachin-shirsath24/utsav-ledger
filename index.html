@@ -1532,7 +1532,7 @@
         
         <div class="flex gap-2 pt-2">
           <button type="button" onclick="closeAdminPinModal()" class="flex-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">रद्द करा</button>
-          <button type="submit" class="flex-1 py-2 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg shadow">लॉग-इन करा</button>
+          <button type="submit" onclick="handleAdminPinSubmit(event)" class="flex-1 py-2 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-lg shadow">लॉग-इन करा</button>
         </div>
       </form>
     </div>
@@ -1983,6 +1983,6 @@
   </footer>
 
   <!-- App Script with cache-busting -->
-  <script src="app.js?v=4.4"></script>
+  <script src="app.js?v=4.5"></script>
 </body>
 </html>

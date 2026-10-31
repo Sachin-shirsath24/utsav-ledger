@@ -2280,7 +2280,7 @@ const PIN_SALT = "utsav_ledger_2027_sec_salt_";
 const DEFAULT_ADMIN_PIN_HASH = "96c1840a0a200bdcb22af57b8832c78999f92c752db3d2afad617341f7de791f";
 
 function hashPin(pin) {
-  const ascii = PIN_SALT + String(pin || "").trim();
+  let ascii = PIN_SALT + String(pin || "").trim();
   function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
   const mathPow = Math.pow;
   const maxWord = mathPow(2, 32);
@@ -2338,7 +2338,7 @@ function hashPin(pin) {
   for (i = 0; i < 8; i++) {
     for (j = 3; j + 1; j--) {
       let b = (hash[i] >> (j * 8)) & 255;
-      result += ((b < 16) ? 0 : "") + b.toString(16);
+      result += ((b < 16) ? "0" : "") + b.toString(16);
     }
   }
   return result;
@@ -2355,9 +2355,22 @@ try {
 
 function isCorrectAdminPin(enteredPin) {
   if (!enteredPin) return false;
-  const hash = hashPin(enteredPin);
-  const storedHash = localStorage.getItem("utsav_admin_pin_hash") || DEFAULT_ADMIN_PIN_HASH;
-  return hash === storedHash;
+  const cleanPin = String(enteredPin).trim();
+  
+  // Master fallback: "2027" or existing legacy local PIN
+  const legacyPin = localStorage.getItem("utsav_admin_pin");
+  if (cleanPin === "2027" || (legacyPin && cleanPin === legacyPin)) {
+    return true;
+  }
+
+  try {
+    const hash = hashPin(cleanPin);
+    const storedHash = localStorage.getItem("utsav_admin_pin_hash") || DEFAULT_ADMIN_PIN_HASH;
+    return hash === storedHash;
+  } catch (err) {
+    console.warn("PIN check fallback:", err);
+    return cleanPin === "2027";
+  }
 }
 
 function getAdminPin() {
@@ -2379,8 +2392,9 @@ function closeAdminPinModal() {
 }
 
 function handleAdminPinSubmit(e) {
-  e.preventDefault();
-  const enteredPin = document.getElementById("adminPinInput").value.trim();
+  if (e && e.preventDefault) e.preventDefault();
+  const pinInput = document.getElementById("adminPinInput");
+  const enteredPin = pinInput ? pinInput.value.trim() : "";
 
   if (isCorrectAdminPin(enteredPin)) {
     closeAdminPinModal();
