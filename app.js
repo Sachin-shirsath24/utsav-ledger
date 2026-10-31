@@ -628,16 +628,12 @@ function renderQrSafely(container, text, size = 120) {
       });
       return;
     } catch (e) {
-      console.warn("QRCode canvas error, using fallback image:", e);
+      console.warn("QRCode canvas error:", e);
     }
   }
 
-  // Fallback to QR server image if QRCode library is not loaded
-  const img = document.createElement("img");
-  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
-  img.alt = "UPI QR Code";
-  img.className = "w-full h-full object-contain";
-  container.appendChild(img);
+  // Safe offline fallback: Never leak UPI IDs or financial parameters to third-party servers
+  container.innerHTML = `<div class="p-3 text-center text-[10px] text-amber-900 font-semibold border border-amber-300 rounded-lg bg-amber-50">QR कोड लोड होत आहे... कृपया क्षणभर थांबा किंवा रिफ्रेश करा.</div>`;
 }
 
 // Helper: NPCI compliant Clean ASCII Payee Name (prevents scanner crashes)
@@ -855,6 +851,18 @@ async function handleDonationSubmit(e) {
   const amount = parseFloat(document.getElementById("donationAmount").value);
   const mode = document.getElementById("paymentMode").value;
   const volunteer = document.getElementById("volunteerSelect") ? document.getElementById("volunteerSelect").value : "कार्यकर्ता";
+
+  // Strict Donation Amount Validation
+  if (isNaN(amount) || amount <= 0) {
+    alert("⚠️ कृपया वैध वर्गणी रक्कम टाका (किमान ₹1)!");
+    document.getElementById("donationAmount").focus();
+    return;
+  }
+  if (amount > 10000000) {
+    alert("⚠️ वर्गणी रक्कम मर्यादेपेक्षा जास्त आहे (कमाल ₹1 कोटी)!");
+    document.getElementById("donationAmount").focus();
+    return;
+  }
   
   const now = new Date();
   // Accurate IST Date (solves UTC date mismatch before 05:30 AM IST)
@@ -888,12 +896,32 @@ async function handleDonationSubmit(e) {
       return;
     }
 
-    // Check duplicate UTR to prevent fraud/re-using old screenshots
+    // 1. Local Duplicate UTR check
     const duplicate = collections.find(c => c.transactionRef && c.transactionRef === transactionRef && c.status !== "CANCELLED");
     if (duplicate) {
       alert(`🚨 फसवणूक अलर्ट (Duplicate Payment Detected):\n\nहा UTR नंबर (${transactionRef}) आधीच पावती क्र. ${duplicate.receiptNo} (${duplicate.donorName}) साठी वापरला गेला आहे!\n\nएकाच पेमेंटवर दोन पावत्या बनवता येणार नाहीत.`);
       document.getElementById("transactionRef").focus();
       return;
+    }
+
+    // 2. Real-Time Cloud Duplicate UTR check (prevents cross-device simultaneous UTR reuse)
+    if (supabaseClient) {
+      try {
+        const { data: cloudUtr, error: cUtrErr } = await supabaseClient
+          .from("collections_simple")
+          .select("receipt_no, donor_name, payment_status")
+          .eq("utr_number", transactionRef)
+          .neq("payment_status", "CANCELLED")
+          .limit(1);
+
+        if (!cUtrErr && cloudUtr && cloudUtr.length > 0) {
+          alert(`🚨 फसवणूक अलर्ट (Cloud Duplicate UTR Detected):\n\nहा UTR नंबर (${transactionRef}) दुसऱ्या मोबाईलवरून पावती क्र. ${cloudUtr[0].receipt_no} (${cloudUtr[0].donor_name}) साठी आधीच वापरला गेला आहे!\n\nकृपया खरा UTR नंबर प्रविष्ट करा.`);
+          document.getElementById("transactionRef").focus();
+          return;
+        }
+      } catch (err) {
+        console.warn("Cloud UTR check warning:", err);
+      }
     }
   }
 
@@ -1716,7 +1744,7 @@ function handleExpenseSubmit(e) {
     const vendor = vendorEl ? vendorEl.value.trim() : "";
     const rawAmount = amountEl ? amountEl.value.trim() : "";
     const amount = parseFloat(rawAmount);
-    const date = (dateEl && dateEl.value) ? dateEl.value : new Date().toISOString().split("T")[0];
+    const date = (dateEl && dateEl.value) ? dateEl.value : getLocalDateIso();
     const desc = descEl ? descEl.value.trim() : "";
 
     // User-friendly Marathi validations
@@ -1927,13 +1955,13 @@ function renderCollectionsTable(filterQuery = "") {
     } else if (c.status === "PENDING_VERIFY") {
       statusBadge = `<span class="bg-amber-50 text-amber-900 px-2 py-0.5 rounded-full font-bold text-[10px] border border-amber-300">🟡 बँक पडताळणी बाकी</span>`;
       verifyActionBtns = `
-        <button onclick="adminVerifyUtr('${c.id}')" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 py-0.5 rounded font-bold ml-1 shadow-xs" title="बँक SMS तपासून खात्री करा">✓ खात्री</button>
-        <button onclick="adminRejectFakeUtr('${c.id}')" class="text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-1.5 py-0.5 rounded font-bold ml-0.5 shadow-xs" title="बनावट असल्यास पावती रद्द करा">❌ फेक</button>
+        <button onclick="adminVerifyUtr('${escapeHtml(c.id)}')" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 py-0.5 rounded font-bold ml-1 shadow-xs" title="बँक SMS तपासून खात्री करा">✓ खात्री</button>
+        <button onclick="adminRejectFakeUtr('${escapeHtml(c.id)}')" class="text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-1.5 py-0.5 rounded font-bold ml-0.5 shadow-xs" title="बनावट असल्यास पावती रद्द करा">❌ फेक</button>
       `;
     } else if (c.status === "CANCELLED_FAKE") {
-      statusBadge = `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-rose-300" title="${c.cancelledReason || ''}">❌ रद्द/बनावट</span>`;
+      statusBadge = `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-rose-300" title="${escapeHtml(c.cancelledReason || '')}">❌ रद्द/बनावट</span>`;
     } else if (c.status === "CANCELLED") {
-      statusBadge = `<span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-slate-300" title="${c.cancelledReason || ''}">🚫 रद्द (Cancelled)</span>`;
+      statusBadge = `<span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px] line-through border border-slate-300" title="${escapeHtml(c.cancelledReason || '')}">🚫 रद्द (Cancelled)</span>`;
     } else {
       statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">🟢 ✓ सत्यापित</span>`;
     }
@@ -2216,18 +2244,31 @@ function setupInitialQrs() {
 }
 
 // -----------------------------------------------------------------------------
-// 6. CSV EXPORT
+// 6. CSV EXPORT & SECURE FORMATTING
 // -----------------------------------------------------------------------------
+function formatCsvCell(val) {
+  if (val === null || val === undefined) return '""';
+  let s = String(val);
+  // Neutralize CSV formula injection (=, +, -, @, tab, carriage return)
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = "'" + s;
+  }
+  // Escape quotes by doubling them per RFC 4180
+  s = s.replace(/"/g, '""');
+  return `"${s}"`;
+}
+
 function exportCollectionsCsv() {
   let csv = "ReceiptNo,DateTime,DonorName,Phone,Society,Wing,Flat,Amount,Mode,Status,Volunteer,Date\n";
   collections.forEach(c => {
-    csv += `"${c.receiptNo}","${formatReceiptDateTime(c)}","${c.donorName}","${c.phone}","${c.society}","${c.wing}","${c.flat}",${c.amount},"${c.mode}","${c.status}","${c.volunteer}","${c.date}"\n`;
+    csv += `${formatCsvCell(c.receiptNo)},${formatCsvCell(formatReceiptDateTime(c))},${formatCsvCell(c.donorName)},${formatCsvCell(c.phone)},${formatCsvCell(c.society)},${formatCsvCell(c.wing)},${formatCsvCell(c.flat)},${Number(c.amount) || 0},${formatCsvCell(c.mode)},${formatCsvCell(c.status)},${formatCsvCell(c.volunteer)},${formatCsvCell(c.date)}\n`;
   });
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  // \uFEFF Byte Order Mark ensures Marathi/Devanagari renders correctly in Excel
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `ShivJayanti_Collections_${new Date().toISOString().split("T")[0]}.csv`;
+  link.download = `ShivJayanti_Collections_${getLocalDateIso()}.csv`;
   link.click();
 }
 
@@ -2637,8 +2678,13 @@ async function confirmResetAllData() {
     localStorage.removeItem("utsav_expenses");
     if (supabaseClient) {
       try {
-        await supabaseClient.from("collections_simple").delete().neq("id", "keep_empty");
-        await supabaseClient.from("expenses_simple").delete().neq("id", "keep_empty");
+        // 1. Try secure Server-Side RPC with PIN check
+        const { error: rpcErr } = await supabaseClient.rpc("admin_reset_all_data", { provided_pin: pin });
+        if (rpcErr) {
+          // Fallback to direct delete if RPC not deployed yet
+          await supabaseClient.from("collections_simple").delete().neq("id", "keep_empty");
+          await supabaseClient.from("expenses_simple").delete().neq("id", "keep_empty");
+        }
       } catch (e) {
         console.warn("Cloud reset warning:", e);
       }
@@ -2731,9 +2777,19 @@ async function syncCollectionToSupabase(col) {
     };
 
     let { error } = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "id" });
-    if (error) {
-      const retry = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "receipt_no" });
-      error = retry.error;
+    if (error && (error.code === "23505" || String(error.message).includes("receipt_no"))) {
+      console.warn("⚠️ Receipt collision detected on cloud for:", col.receiptNo, "Re-sequencing to protect donor data...");
+      try {
+        const { data: newSeq, error: rpcErr } = await supabaseClient.rpc("get_next_receipt_number");
+        if (!rpcErr && newSeq) {
+          col.receiptNo = newSeq;
+          payload.receipt_no = newSeq;
+          const retry = await supabaseClient.from("collections_simple").upsert(payload, { onConflict: "id" });
+          error = retry.error;
+        }
+      } catch (errSeq) {
+        console.warn("Could not re-sequence:", errSeq);
+      }
     }
 
     if (error) {
@@ -2890,16 +2946,18 @@ async function loadFromSupabase() {
           _isLocalOfflineOnly: false
         };
 
-        mergedMap.set(r.receipt_no, cloudItem);
+        // Key by unique record ID so receipts are never hidden or collided in memory
+        mergedMap.set(r.id, cloudItem);
       });
 
       // Keep only genuine pending offline local collections that haven't reached cloud yet
+      const cloudIds = new Set(colData.map(r => r.id));
       const cloudReceipts = new Set(colData.map(r => r.receipt_no));
       const pendingOffline = [];
       collections.forEach(c => {
-        if (c && c.receiptNo && !deletedReceipts.includes(c.id)) {
-          if (!cloudReceipts.has(c.receiptNo) && c._isLocalOfflineOnly === true) {
-            mergedMap.set(c.receiptNo, c);
+        if (c && c.id && !deletedReceipts.includes(c.id)) {
+          if (!cloudIds.has(c.id) && !cloudReceipts.has(c.receiptNo) && c._isLocalOfflineOnly === true) {
+            mergedMap.set(c.id, c);
             pendingOffline.push(c);
           }
         }
@@ -3049,9 +3107,21 @@ function loadGallery() {
   renderGallery();
 }
 
-function saveGallery() {
-  localStorage.setItem("utsav_gallery_v2", JSON.stringify(galleryItems));
-  renderGallery();
+function saveGallery(newItem = null) {
+  try {
+    localStorage.setItem("utsav_gallery_v2", JSON.stringify(galleryItems));
+    renderGallery();
+    return true;
+  } catch (err) {
+    console.warn("⚠️ localStorage quota reached for gallery:", err);
+    // Rollback memory state if quota exceeded so memory and storage stay in sync
+    if (newItem && newItem.id) {
+      galleryItems = galleryItems.filter(item => item.id !== newItem.id);
+    }
+    alert("⚠️ ब्राऊझर मेमरी (LocalStorage Quota) मर्यादा आली आहे!\nफोटो खूप मोठा असल्यामुळे सेव्ह करता आला नाही.\nकृपया फोटो कॉम्प्रॅस करा किंवा थेट URL लिंक वापरा.");
+    renderGallery();
+    return false;
+  }
 }
 
 function renderGallery(yearFilter = "ALL") {
@@ -3152,12 +3222,41 @@ function submitGalleryItem() {
     return;
   }
 
-  // If file uploaded, convert to Base64
+  // If file uploaded, compress via Canvas before saving to prevent LocalStorage Quota Crashes
   if (fileInput && fileInput.files && fileInput.files[0]) {
     const file = fileInput.files[0];
     const reader = new FileReader();
-    reader.onload = function(e) {
-      saveNewGalleryRecord(title, year, type, e.target.result);
+    reader.onload = function(readerEvent) {
+      const img = new Image();
+      img.onload = function() {
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          const MAX_WIDTH = 1000;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Compress to lightweight JPEG (75% quality)
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.75);
+          saveNewGalleryRecord(title, year, type, compressedDataUrl);
+        } catch (err) {
+          console.warn("Canvas compression fallback:", err);
+          saveNewGalleryRecord(title, year, type, readerEvent.target.result);
+        }
+      };
+      img.onerror = function() {
+        saveNewGalleryRecord(title, year, type, readerEvent.target.result);
+      };
+      img.src = readerEvent.target.result;
     };
     reader.readAsDataURL(file);
   } else if (urlInput) {
@@ -3178,7 +3277,9 @@ function saveNewGalleryRecord(title, year, type, url) {
   };
 
   galleryItems.unshift(newItem);
-  saveGallery();
+  const success = saveGallery(newItem);
+  if (!success) return; // Quota error rolled back memory
+
   closeGalleryUploadModal();
 
   // Reset inputs
