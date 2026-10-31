@@ -527,10 +527,12 @@ function switchTab(tabName) {
 // -----------------------------------------------------------------------------
 // 3. DONATION SUBMIT & RECEIPT GENERATOR
 // -----------------------------------------------------------------------------
+// Smart Accounting Counter: Never mutates already issued receipts (protects donor receipts)
+// Automatically rolls back if the latest receipt is cancelled, and preserves numbers for existing donors
 async function updateNextReceiptNumber() {
   let maxNum = 0;
   collections.forEach(c => {
-    if (c.receiptNo) {
+    if (c.status !== "CANCELLED" && c.status !== "CANCELLED_FAKE" && c.receiptNo) {
       const match = c.receiptNo.match(/(\d+)$/);
       if (match) {
         const num = parseInt(match[1], 10);
@@ -539,8 +541,8 @@ async function updateNextReceiptNumber() {
     }
   });
 
-  // Check Supabase Cloud sequence or highest receipt_no so multi-devices don't collide
-  if (supabaseClient) {
+  // Check Supabase Cloud highest receipt_no only if local is empty
+  if (supabaseClient && collections.length === 0) {
     try {
       const { data, error } = await supabaseClient
         .from("collections_simple")
@@ -2863,10 +2865,10 @@ async function cancelCollectionWithReason(id) {
       }
     }
 
-    // 6. Update UI immediately
+    // 6. Update UI immediately (Adjusts next receipt counter automatically while preserving issued donor numbers)
     updateLiveStats();
     renderCollectionsTable();
-    updateNextReceiptNumber();
+    await updateNextReceiptNumber();
 
     alert(`✓ पावती क्र. ${item.receiptNo} (${item.donorName}) यशस्वीरीत्या कायमची डिलीट करण्यात आली.`);
   }
