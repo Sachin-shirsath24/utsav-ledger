@@ -1973,6 +1973,8 @@ function renderCollectionsTable(filterQuery = "") {
   tbody.innerHTML = "";
 
   const filtered = collections.filter(c => {
+    // Completely hide cancelled or deleted receipts so they NEVER appear in the registry
+    if (c.status === "CANCELLED" || c.status === "CANCELLED_FAKE") return false;
     if (isFollowUpFilterActive && c.status !== "PLEDGED") return false;
     if (!filterQuery) return true;
     const q = filterQuery.toLowerCase();
@@ -2823,30 +2825,50 @@ async function cancelCollectionWithReason(id) {
   const item = collections.find(c => c.id === id);
   if (!item) return;
 
-  const pin = prompt(`🔒 सुरक्षेसाठी खजिनदार/ऍडमिन पिन आवश्यक:\n\nपावती क्र: ${item.receiptNo}\nदेणगीदार: ${item.donorName} (₹${item.amount})\n\nपावती रद्द करण्यासाठी पिन प्रविष्ट करा:`);
+  const pin = prompt(`🔒 सुरक्षेसाठी ऍडमिन पिन आवश्यक:\n\nपावती क्र: ${item.receiptNo}\nदेणगीदार: ${item.donorName} (₹${item.amount})\n\nपावती डिलीट / रद्द करण्यासाठी ऍडमिन पिन प्रविष्ट करा:`);
   if (pin === null) return;
 
   if (!isCorrectAdminPin(pin.trim())) {
-    alert("🚨 अनधिकृत कृती! चुकीचा पिन. पावती रद्द करण्याचा अधिकार फक्त खजिनदार/ऍडमिनला आहे.");
+    alert("🚨 अनधिकृत कृती! चुकीचा पिन. पावती डिलीट करण्याचा अधिकार फक्त मुख्य ऍडमिनला आहे.");
     return;
   }
 
-  const reason = prompt(`पावती क्र. ${item.receiptNo} रद्द करण्याचे कारण प्रविष्ट करा:\n(उदा. चुकीची रक्कम, डोनरची विनंती, दुबार नोंद)`, "तांत्रिक चूक / दुबार नोंद");
+  const reason = prompt(`पावती क्र. ${item.receiptNo} डिलीट करण्याचे कारण प्रविष्ट करा:\n(उदा. चुकीची रक्कम, डोनरची विनंती, दुबार नोंद)`, "तांत्रिक चूक / दुबार नोंद");
   if (!reason) {
-    alert("⚠️ कारण प्रविष्ट न केल्यामुळे पावती रद्द केली नाही.");
+    alert("⚠️ कारण प्रविष्ट न केल्यामुळे पावती डिलीट केली नाही.");
     return;
   }
 
-  if (confirm(`⚠️ खात्री करा: पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) रद्द करायची आहे का?\n\nही रक्कम एकूण जमा रकमेतून वजा होईल परंतु ऑडिट ट्रेलमध्ये कायम राहील.`)) {
-    item.status = "CANCELLED";
-    item.cancelledReason = reason;
-    item.cancelledBy = "ऍडमिन/खजिनदार";
-    item.cancelledAt = new Date().toISOString();
+  if (confirm(`⚠️ खात्री करा: पावती क्र. ${item.receiptNo} (${item.donorName} - ₹${item.amount}) कायमची डिलीट करायची आहे का?\n\nही नोंद कलेक्शन यादीतून पूर्णपणे काढून टाकली जाईल आणि रक्कम एकूण संकलनातून वजा होईल.`)) {
+    // 1. Permanently register in deleted receipts registry so it never resurrects
+    markReceiptAsDeleted(item.receiptNo);
+    markReceiptAsDeleted(id);
 
-    saveCollections(item);
+    // 2. Audit log
+    item.status = "CANCELLED";
     logAuditEvent("RECEIPT_CANCEL", "COLLECTION", item.id, { receiptNo: item.receiptNo, amount: item.amount, reason }, "ऍडमिन/खजिनदार");
 
-    alert(`✓ पावती क्र. ${item.receiptNo} रद्द करण्यात आली आणि ऑडिट लॉगमध्ये सुरक्षित नोंद झाली.`);
+    // 3. Remove completely from collections memory
+    collections = collections.filter(c => c.id !== id);
+
+    // 4. Save to localStorage immediately
+    saveCollections();
+
+    // 5. Delete permanently from Supabase Cloud
+    if (supabaseClient) {
+      try {
+        supabaseClient.from("collections_simple").delete().eq("id", id).then();
+      } catch (err) {
+        console.warn("Supabase collection delete error:", err);
+      }
+    }
+
+    // 6. Update UI immediately
+    updateLiveStats();
+    renderCollectionsTable();
+    updateNextReceiptNumber();
+
+    alert(`✓ पावती क्र. ${item.receiptNo} (${item.donorName}) यशस्वीरीत्या कायमची डिलीट करण्यात आली.`);
   }
 }
 
