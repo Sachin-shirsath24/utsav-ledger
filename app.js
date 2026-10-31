@@ -126,6 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 3. If Supabase is connected, automatically fetch latest cloud data & subscribe to live updates
   if (sbConnected) {
+    syncLocalConfigToSupabase();
     await loadFromSupabase();
     subscribeToSupabaseChanges();
   }
@@ -644,9 +645,19 @@ function getCleanUpiPayeeName() {
   return asciiOnly.length >= 3 ? asciiOnly : "Shivaji Raje Sanghatana";
 }
 
+// Helper: Clean Active UPI ID (Zero dummy fallback - Admin configuration only!)
+function getActiveUpiId() {
+  const stored = localStorage.getItem("utsav_upi_id");
+  if (stored && stored.trim() && stored.trim() !== "shivajiraje@upi") {
+    return stored.trim();
+  }
+  return "";
+}
+
 // Helper: Standard NPCI UPI Intent Builder (Spec v1.6)
 function buildStandardUpiUrl(amount) {
-  const upiId = (localStorage.getItem("utsav_upi_id") || "shivajiraje@upi").trim();
+  const upiId = getActiveUpiId();
+  if (!upiId) return "";
   const cleanName = encodeURIComponent(getCleanUpiPayeeName());
 
   let url = `upi://pay?pa=${upiId}&pn=${cleanName}&cu=INR&tn=ShivJayanti2027`;
@@ -662,10 +673,10 @@ function buildStandardUpiUrl(amount) {
 }
 
 function checkUpiIdStatus() {
-  const currentId = (localStorage.getItem("utsav_upi_id") || "shivajiraje@upi").trim();
+  const upiId = getActiveUpiId();
   return {
-    isDummy: currentId === "shivajiraje@upi" || currentId === "",
-    upiId: currentId
+    isConfigured: Boolean(upiId),
+    upiId: upiId
   };
 }
 
@@ -673,22 +684,28 @@ function generateLiveUpiQr(amount) {
   const upiQrContainer = document.getElementById("liveUpiQr");
   if (!upiQrContainer) return;
 
-  const { isDummy, upiId } = checkUpiIdStatus();
+  const { isConfigured, upiId } = checkUpiIdStatus();
   const upiName = localStorage.getItem("utsav_upi_name") || "शिवाजी राजे संघटना";
 
   // Update locked account display
   const displayId = document.getElementById("displayLockedUpiId");
   const displayName = document.getElementById("displayLockedUpiName");
   if (displayId) {
-    displayId.innerText = upiId;
-    if (isDummy) {
-      displayId.innerHTML = `<span class="text-rose-600 font-bold">${upiId} (डमी आयडी - बदलणे आवश्यक)</span>`;
+    if (isConfigured) {
+      displayId.innerText = upiId;
+    } else {
+      displayId.innerHTML = `<span class="text-amber-700 font-semibold text-xs">⚠️ अधिकृत खाते लोड होत आहे / सेट करणे बाकी</span>`;
     }
   }
   if (displayName) displayName.innerText = upiName;
 
-  const upiUrl = buildStandardUpiUrl(amount);
-  renderQrSafely(upiQrContainer, upiUrl, 130);
+  if (isConfigured) {
+    const upiUrl = buildStandardUpiUrl(amount);
+    renderQrSafely(upiQrContainer, upiUrl, 130);
+  } else {
+    upiQrContainer.innerHTML = `<div class="p-2 text-center text-[10px] text-slate-500 font-semibold"><i data-lucide="clock" class="w-5 h-5 mx-auto mb-1 text-amber-500"></i>अधिकृत खाते लोड होत आहे...</div>`;
+    lucide.createIcons();
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -698,15 +715,12 @@ let currentDirectAmount = 501;
 
 function openDirectUpiModal() {
   const orgName = localStorage.getItem("utsav_org_name") || "शिवाजी राजे संघटना";
-  const { isDummy, upiId } = checkUpiIdStatus();
+  const { isConfigured, upiId } = checkUpiIdStatus();
 
   document.getElementById("directModalOrgName").innerText = orgName;
   const idEl = document.getElementById("directModalUpiId");
   if (idEl) {
-    idEl.innerText = upiId;
-    if (isDummy) {
-      idEl.innerHTML = `<span class="text-rose-600 font-bold">${upiId} (डमी आयडी)</span>`;
-    }
+    idEl.innerText = isConfigured ? upiId : "अधिकृत UPI ID लोड होत आहे...";
   }
 
   setDirectUpiAmount(currentDirectAmount);
@@ -778,7 +792,11 @@ function setDirectUpiOpenAmount() {
 }
 
 function copyUpiId() {
-  const upiId = localStorage.getItem("utsav_upi_id") || "shivajiraje@upi";
+  const upiId = getActiveUpiId();
+  if (!upiId) {
+    alert("⚠️ अधिकृत UPI ID अद्याप सेट केलेला नाही. कृपया ऍडमिन पॅनलमधून सेट करा.");
+    return;
+  }
   navigator.clipboard.writeText(upiId).then(() => {
     alert(`✓ UPI ID कॉपी झाला: ${upiId}\nPhonePe किंवा Google Pay मध्ये पेस्ट करून थेट पेमेंट करू शकता.`);
   }).catch(() => {
@@ -1422,19 +1440,26 @@ function formatMarathiCurrencyWords(num) {
   return words.join(" ") + " रुपये फक्त";
 }
 
+let isExternalDonorReceipt = false;
+
 function checkUrlForReceiptVerification() {
   try {
     const params = new URLSearchParams(window.location.search);
     const receiptQuery = params.get("receipt") || params.get("no");
     if (receiptQuery && receiptQuery.trim() !== "") {
-      enterStandaloneReceiptMode(receiptQuery.trim());
+      isExternalDonorReceipt = true;
+      enterStandaloneReceiptMode(receiptQuery.trim(), true);
     }
   } catch (err) {
     console.error("URL check error:", err);
   }
 }
 
-async function enterStandaloneReceiptMode(receiptNo) {
+async function enterStandaloneReceiptMode(receiptNo, isExternal = false) {
+  if (isExternal) {
+    isExternalDonorReceipt = true;
+  }
+
   // 1. Immediately hide main web app components
   const header = document.getElementById("appMainHeader");
   const summary = document.getElementById("appLiveSummarySection");
@@ -1447,6 +1472,18 @@ async function enterStandaloneReceiptMode(receiptNo) {
   if (main) main.classList.add("hidden");
   if (footer) footer.classList.add("hidden");
   if (pubModal) pubModal.classList.add("hidden");
+
+  // Security: If opened via WhatsApp link (isExternalDonorReceipt),
+  // strictly hide dashboard access buttons so website dashboard cannot be opened!
+  if (isExternalDonorReceipt) {
+    document.querySelectorAll(".receipt-dashboard-btn").forEach(btn => btn.classList.add("hidden"));
+    const verifiedBadge = document.getElementById("donorVerifiedBadge");
+    if (verifiedBadge) verifiedBadge.classList.remove("hidden");
+  } else {
+    document.querySelectorAll(".receipt-dashboard-btn").forEach(btn => btn.classList.remove("hidden"));
+    const verifiedBadge = document.getElementById("donorVerifiedBadge");
+    if (verifiedBadge) verifiedBadge.classList.add("hidden");
+  }
 
   // 2. Display the standalone receipt container
   const view = document.getElementById("standaloneReceiptView");
@@ -1641,6 +1678,12 @@ async function downloadOrPrintPdfReceipt() {
 }
 
 function exitReceiptViewToApp() {
+  // Security Lockdown: External donors visiting via WhatsApp link cannot access the dashboard
+  if (isExternalDonorReceipt) {
+    alert("🔒 ही अधिकृत डिजिटल देणगी पावती आहे. मंडळाचा मुख्य डॅशबोर्ड व हिशोब केवळ अधिकृत कमिटीसाठी राखीव आहे.");
+    return;
+  }
+
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
@@ -2079,17 +2122,21 @@ function sendFollowUpReminder(id) {
   }
 
   const cleanPhone = getCleanWhatsAppPhone(item.phone);
-  const upiId = (localStorage.getItem("utsav_upi_id") || "shivajiraje@upi").trim();
-  const upiPayUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(getCleanUpiPayeeName())}&am=${item.amount}&cu=INR&tn=ShivJayanti2027`;
+  const upiId = getActiveUpiId();
+  const upiPayUrl = upiId ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(getCleanUpiPayeeName())}&am=${item.amount}&cu=INR&tn=ShivJayanti2027` : "";
 
-  const msg = `🚩 *जय शिवराय! सादर सस्नेह नमस्कार* 🚩\n\n` +
+  let msg = `🚩 *जय शिवराय! सादर सस्नेह नमस्कार* 🚩\n\n` +
     `*शिवाजी राजे संघटना — १९ फेब्रुवारी शिवजयंती महोत्सव २०२७*\n\n` +
     `आदरणीय *${item.donorName}* जी,\n` +
-    `आपण शिवजयंती महोत्सवासाठी *₹${item.amount.toLocaleString("en-IN")}* ची वर्गणी देण्याचे नम्रपणे निश्चित केले होते (पावती क्र. *${item.receiptNo}*).\n\n` +
-    `आपण खालील अधिकृत UPI द्वारे घरबसल्या वर्गणी पाठवू शकता:\n` +
-    `💳 *UPI ID:* \`${upiId}\`\n\n` +
-    `थेट UPI पेमेंट लिंक:\n${upiPayUrl}\n\n` +
-    `पेमेंट झाल्यावर कृपया आलेला १२-अंकी UTR नंबर आम्हाला कळवावा, जेणेकरून आपली अधिकृत डिजिटल पावती त्वरित पाठवण्यात येईल.\n\n` +
+    `आपण शिवजयंती महोत्सवासाठी *₹${item.amount.toLocaleString("en-IN")}* ची वर्गणी देण्याचे नम्रपणे निश्चित केले होते (पावती क्र. *${item.receiptNo}*).\n\n`;
+
+  if (upiId) {
+    msg += `आपण खालील अधिकृत UPI द्वारे घरबसल्या वर्गणी पाठवू शकता:\n` +
+      `💳 *UPI ID:* \`${upiId}\`\n\n` +
+      `थेट UPI पेमेंट लिंक:\n${upiPayUrl}\n\n`;
+  }
+
+  msg += `पेमेंट झाल्यावर कृपया आलेला १२-अंकी UTR नंबर आम्हाला कळवावा, जेणेकरून आपली अधिकृत डिजिटल पावती त्वरित पाठवण्यात येईल.\n\n` +
     `॥ जय भवानी । जय शिवाजी ॥\n` +
     `*शिवाजी राजे संघटना उत्सव समिती*`;
 
@@ -2273,11 +2320,9 @@ function exportCollectionsCsv() {
 }
 
 // -----------------------------------------------------------------------------
-// 7. ADMIN SECURITY LOCK (SHA-256 SALTED HASH - ZERO PLAINTEXT PIN IN STORAGE)
+// 7. ADMIN SECURITY LOCK (SHA-256 SALTED HASH - ZERO DEFAULT PIN IN SOURCE CODE)
 // -----------------------------------------------------------------------------
 const PIN_SALT = "utsav_ledger_2027_sec_salt_";
-// SHA-256 salted hash of default PIN "2027" (Never store plaintext PIN in code or storage)
-const DEFAULT_ADMIN_PIN_HASH = "96c1840a0a200bdcb22af57b8832c78999f92c752db3d2afad617341f7de791f";
 
 function hashPin(pin) {
   let ascii = PIN_SALT + String(pin || "").trim();
@@ -2344,33 +2389,29 @@ function hashPin(pin) {
   return result;
 }
 
-// Purge any legacy plaintext PIN from localStorage immediately on execution
+// Purge any default PIN ("2027") so there is ZERO hardcoded default PIN!
 try {
-  const legacyPin = localStorage.getItem("utsav_admin_pin");
-  if (legacyPin) {
-    localStorage.setItem("utsav_admin_pin_hash", hashPin(legacyPin));
-    localStorage.removeItem("utsav_admin_pin");
+  localStorage.removeItem("utsav_admin_pin");
+  if (localStorage.getItem("utsav_upi_id") === "shivajiraje@upi") {
+    localStorage.removeItem("utsav_upi_id");
+  }
+  const currentHash = localStorage.getItem("utsav_admin_pin_hash");
+  // If it matches the legacy 2027 default hash, purge it so user sets their own custom PIN
+  if (currentHash === "96c1840a0a200bdcb22af57b8832c78999f92c752db3d2afad617341f7de791f") {
+    localStorage.removeItem("utsav_admin_pin_hash");
   }
 } catch (e) {}
+
+function getStoredAdminPinHash() {
+  return localStorage.getItem("utsav_admin_pin_hash") || null;
+}
 
 function isCorrectAdminPin(enteredPin) {
   if (!enteredPin) return false;
   const cleanPin = String(enteredPin).trim();
-  
-  // Master fallback: "2027" or existing legacy local PIN
-  const legacyPin = localStorage.getItem("utsav_admin_pin");
-  if (cleanPin === "2027" || (legacyPin && cleanPin === legacyPin)) {
-    return true;
-  }
-
-  try {
-    const hash = hashPin(cleanPin);
-    const storedHash = localStorage.getItem("utsav_admin_pin_hash") || DEFAULT_ADMIN_PIN_HASH;
-    return hash === storedHash;
-  } catch (err) {
-    console.warn("PIN check fallback:", err);
-    return cleanPin === "2027";
-  }
+  const storedHash = getStoredAdminPinHash();
+  if (!storedHash) return false; // Zero default PIN! Must be set by user!
+  return hashPin(cleanPin) === storedHash;
 }
 
 function getAdminPin() {
@@ -2383,6 +2424,22 @@ function promptAdminPin() {
   if (pinInput) pinInput.value = "";
   const err = document.getElementById("pinErrorMsg");
   if (err) err.classList.add("hidden");
+
+  const modalDesc = document.getElementById("adminPinModalDesc");
+  const modalLabel = document.getElementById("adminPinModalLabel");
+  const modalBtn = document.getElementById("adminPinModalBtn");
+  const storedHash = getStoredAdminPinHash();
+
+  if (!storedHash) {
+    if (modalDesc) modalDesc.innerHTML = "⚠️ <strong>कोणताही डिफॉल्ट पिन ठेवलेला नाही.</strong> कृपया प्रथम तुमचा स्वतःचा 4-6 अंकी गुप्त ऍडमिन पिन तयार करा.";
+    if (modalLabel) modalLabel.innerText = "नवीन गुप्त ऍडमिन पिन सेट करा (Create Master PIN):";
+    if (modalBtn) modalBtn.innerText = "पिन सेव्ह करून उघडा";
+  } else {
+    if (modalDesc) modalDesc.innerHTML = "UPI खाते किंवा सिस्टीम सेटिंग्ज बदलण्यासाठी मुख्य ऍडमिनचा गुप्त <strong>Security PIN</strong> आवश्यक आहे.";
+    if (modalLabel) modalLabel.innerText = "ऍडमिन गुप्त पिन (Admin Master PIN):";
+    if (modalBtn) modalBtn.innerText = "लॉग-इन करा";
+  }
+
   document.getElementById("adminPinModal").classList.remove("hidden");
   lucide.createIcons();
 }
@@ -2395,7 +2452,33 @@ function handleAdminPinSubmit(e) {
   if (e && e.preventDefault) e.preventDefault();
   const pinInput = document.getElementById("adminPinInput");
   const enteredPin = pinInput ? pinInput.value.trim() : "";
+  const storedHash = getStoredAdminPinHash();
 
+  // First-time PIN setup (When zero default PIN exists)
+  if (!storedHash) {
+    if (!enteredPin || enteredPin.length < 4) {
+      alert("⚠️ सुरक्षेसाठी पिन किमान 4 अंकी असावा!");
+      return;
+    }
+    const newHash = hashPin(enteredPin);
+    localStorage.setItem("utsav_admin_pin_hash", newHash);
+
+    // Sync hash to Supabase cloud settings
+    if (supabaseClient) {
+      supabaseClient.from("settings_simple").upsert({
+        key: "admin_pin_hash",
+        value: newHash,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" }).then().catch();
+    }
+
+    alert("✓ तुमचा स्वतःचा नवीन ऍडमिन पिन यशस्वीरीत्या सेट झाला! हा पिन लक्षात ठेवा.");
+    closeAdminPinModal();
+    openConfigModal();
+    return;
+  }
+
+  // Normal Admin Verification
   if (isCorrectAdminPin(enteredPin)) {
     closeAdminPinModal();
     openConfigModal();
@@ -2432,7 +2515,7 @@ function openConfigModal() {
   // Populate Budget & UPI
   document.getElementById("targetBudgetInput").value = getTargetBudget();
   document.getElementById("liveUrlInput").value = localStorage.getItem("utsav_live_url") || "";
-  document.getElementById("upiIdInput").value = localStorage.getItem("utsav_upi_id") || "shivajiraje@upi";
+  document.getElementById("upiIdInput").value = getActiveUpiId();
   document.getElementById("upiNameInput").value = localStorage.getItem("utsav_upi_name") || "शिवाजी राजे संघटना";
   document.getElementById("supabaseUrlInput").value = localStorage.getItem("utsav_sb_url") || DEFAULT_SUPABASE_URL;
   document.getElementById("supabaseKeyInput").value = localStorage.getItem("utsav_sb_key") || DEFAULT_SUPABASE_KEY;
@@ -2631,6 +2714,29 @@ function saveAdminSettings() {
     localStorage.setItem("utsav_sb_key", key);
   }
 
+  // SYNC ALL CONFIG TO SUPABASE CLOUD (so all mobile phones & devices see the real UPI ID and org details!)
+  if (supabaseClient) {
+    const cloudSettings = [
+      { key: "upi_id", value: upiId },
+      { key: "upi_name", value: upiName },
+      { key: "org_name", value: orgName },
+      { key: "event_badge", value: eventBadge },
+      { key: "event_subtitle", value: eventSubtitle },
+      { key: "target_budget", value: String(targetBudget || "") },
+      { key: "live_url", value: liveUrl }
+    ].filter(item => Boolean(item.value));
+
+    cloudSettings.forEach(item => {
+      supabaseClient.from("settings_simple").upsert({
+        key: item.key,
+        value: item.value,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" }).then(({ error }) => {
+        if (error) console.warn("Supabase setting sync:", item.key, error.message);
+      }).catch(err => console.warn("Supabase setting err:", err));
+    });
+  }
+
   // Refresh active QR if in UPI mode
   const currentMode = document.getElementById("paymentMode")?.value;
   if (currentMode === "UPI") {
@@ -2640,8 +2746,37 @@ function saveAdminSettings() {
 
   loadOrgBrandSettings();
   updateLiveStats();
-  alert("✓ सर्व ऍडमिन सेटिंग्ज यशस्वीरीत्या सेव्ह झाल्या!");
+  alert("✓ सर्व ऍडमिन सेटिंग्ज यशस्वीरीत्या सेव्ह झाल्या आणि क्लाऊडवर सिंक झाल्या!");
   closeConfigModal();
+}
+
+// Automatically sync existing local configuration from laptop to Supabase on connect
+function syncLocalConfigToSupabase() {
+  if (!supabaseClient) return;
+  const localUpi = localStorage.getItem("utsav_upi_id");
+  const localUpiName = localStorage.getItem("utsav_upi_name");
+  const localOrg = localStorage.getItem("utsav_org_name");
+  const localBadge = localStorage.getItem("utsav_event_badge");
+  const localSubtitle = localStorage.getItem("utsav_event_subtitle");
+  const localBudget = localStorage.getItem("utsav_target_budget");
+  const localPinHash = localStorage.getItem("utsav_admin_pin_hash");
+
+  const toPush = [];
+  if (localUpi && localUpi !== "shivajiraje@upi") toPush.push({ key: "upi_id", value: localUpi });
+  if (localUpiName) toPush.push({ key: "upi_name", value: localUpiName });
+  if (localOrg) toPush.push({ key: "org_name", value: localOrg });
+  if (localBadge) toPush.push({ key: "event_badge", value: localBadge });
+  if (localSubtitle) toPush.push({ key: "event_subtitle", value: localSubtitle });
+  if (localBudget) toPush.push({ key: "target_budget", value: localBudget });
+  if (localPinHash) toPush.push({ key: "admin_pin_hash", value: localPinHash });
+
+  toPush.forEach(item => {
+    supabaseClient.from("settings_simple").upsert({
+      key: item.key,
+      value: item.value,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "key" }).then().catch();
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -2936,6 +3071,14 @@ function subscribeToSupabaseChanges() {
           loadFromSupabase();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "settings_simple" },
+        (payload) => {
+          console.log("🔔 Realtime settings update from cloud:", payload);
+          loadFromSupabase();
+        }
+      )
       .subscribe();
     console.log("📡 Real-time live subscription active on Supabase");
   } catch (err) {
@@ -3161,8 +3304,27 @@ async function loadFromSupabase() {
             localStorage.setItem("utsav_upi_id", s.value);
           } else if (s.key === "upi_name" && s.value) {
             localStorage.setItem("utsav_upi_name", s.value);
+          } else if (s.key === "org_name" && s.value) {
+            localStorage.setItem("utsav_org_name", s.value);
+          } else if (s.key === "event_badge" && s.value) {
+            localStorage.setItem("utsav_event_badge", s.value);
+          } else if (s.key === "event_subtitle" && s.value) {
+            localStorage.setItem("utsav_event_subtitle", s.value);
+          } else if (s.key === "target_budget" && s.value) {
+            localStorage.setItem("utsav_target_budget", s.value);
+          } else if (s.key === "live_url" && s.value) {
+            localStorage.setItem("utsav_live_url", s.value);
           }
         });
+
+        // Immediately update page UI and QR code with fresh cloud settings
+        loadOrgBrandSettings();
+        setupInitialQrs();
+        const currentMode = document.getElementById("paymentMode")?.value;
+        if (currentMode === "UPI") {
+          const amt = document.getElementById("donationAmount")?.value || "500";
+          generateLiveUpiQr(amt);
+        }
       }
     } catch (se) {
       console.warn("Supabase settings note:", se);
