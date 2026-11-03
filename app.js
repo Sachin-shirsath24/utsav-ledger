@@ -1427,11 +1427,42 @@ ${directReceiptLink}
 || जय भवानी | जय शिवाजी ||`;
 }
 
+function isAuthorizedToShareReceipt(enteredPin) {
+  if (!enteredPin) return false;
+  const clean = enteredPin.trim();
+
+  // 1. Check Master Admin PIN
+  if (isCorrectAdminPin(clean)) {
+    return true;
+  }
+
+  // 2. Check any registered Volunteer Secret Code
+  const cleanUpper = clean.toUpperCase();
+  const matchedVolunteer = volunteers.find(v => {
+    const vCode = (v.secretCode || "190227").toUpperCase();
+    return vCode === cleanUpper;
+  });
+
+  if (matchedVolunteer) {
+    return true;
+  }
+
+  return false;
+}
+
 function resendWhatsApp(id) {
   const item = collections.find(c => c.id === id);
-  if (item) {
-    shareReceiptPdfOnWhatsApp(item);
+  if (!item) return;
+
+  const enteredPin = prompt(`🔒 सुरक्षेसाठी पिन आवश्यक:\n\nपावती WhatsApp वर पुन्हा पाठवण्यासाठी ऍडमिन पिन किंवा अधिकृत कार्यकर्ता ६-अंकी कोड प्रविष्ट करा :`);
+  if (enteredPin === null) return;
+
+  if (!isAuthorizedToShareReceipt(enteredPin)) {
+    alert("🚨 अनधिकृत कृती! चुकीचा पिन किंवा कार्यकर्ता कोड.\nपावती WhatsApp वर पाठवण्याचा अधिकार केवळ ऍडमिन किंवा अधिकृत कार्यकर्त्यांनाच आहे.");
+    return;
   }
+
+  shareReceiptPdfOnWhatsApp(item);
 }
 
 // -----------------------------------------------------------------------------
@@ -2176,6 +2207,14 @@ function sendFollowUpReminder(id) {
   const item = collections.find(c => c.id === id);
   if (!item || !item.phone) {
     alert("⚠️ डोनरचा फोन नंबर उपलब्ध नाही!");
+    return;
+  }
+
+  const enteredPin = prompt(`🔒 सुरक्षेसाठी पिन आवश्यक:\n\nफॉलो-अप मेसेज WhatsApp वर पाठवण्यासाठी ऍडमिन पिन किंवा अधिकृत कार्यकर्ता ६-अंकी कोड प्रविष्ट करा :`);
+  if (enteredPin === null) return;
+
+  if (!isAuthorizedToShareReceipt(enteredPin)) {
+    alert("🚨 अनधिकृत कृती! चुकीचा पिन किंवा कार्यकर्ता कोड.\nफॉलो-अप मेसेज पाठवण्याचा अधिकार केवळ ऍडमिन किंवा अधिकृत कार्यकर्त्यांनाच आहे.");
     return;
   }
 
