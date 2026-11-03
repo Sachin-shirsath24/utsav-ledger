@@ -278,22 +278,96 @@
     <!-- TAB 1: NEW DONATION RECEIPT GENERATOR -->
     <!-- ======================================================== -->
     <div id="view-donation" class="tab-view block">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Form Column -->
-        <div class="lg:col-span-7 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
-            <div>
-              <h2 class="text-base sm:text-xl font-black font-royal text-slate-900 flex items-center gap-2">
-                <i data-lucide="file-text" class="w-5 h-5 text-bhagwa-600"></i>
-                नवीन वर्गणी पावती (Door-to-Door Collection)
-              </h2>
-              <p class="text-xs text-slate-500">पावती भरताच डोनरला डिजिटल पावती तयार होईल</p>
+
+      <!-- VOLUNTEER AUTHENTICATION LOGIN CARD -->
+      <div id="volunteerLoginContainer" class="max-w-md mx-auto bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-amber-300/60 text-center my-6">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-bhagwa-600 to-amber-500 text-white flex items-center justify-center mx-auto mb-4 shadow-md">
+          <i data-lucide="shield-check" class="w-8 h-8"></i>
+        </div>
+        <div class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-900 text-[11px] font-bold px-3 py-1 rounded-full mb-2 border border-amber-300">
+          <i data-lucide="lock" class="w-3 h-3 text-amber-700"></i> अधिकृत वर्गणी पावती सुरक्षा
+        </div>
+        <h3 class="text-xl font-black text-slate-900 font-royal">कार्यकर्ता अधिकृत लॉगिन</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+          पावती फाडण्यासाठी तुमचा नोंदणीकृत मोबाईल नंबर आणि उत्सव समितीने दिलेला ६-अंकी सिक्रेट पासकोड प्रविष्ट करा.
+        </p>
+
+        <form onsubmit="handleVolunteerLogin(event)" class="space-y-4 mt-6 text-left">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">नोंदणीकृत मोबाईल नंबर *</label>
+            <div class="relative">
+              <i data-lucide="phone" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+              <input type="tel" id="volLoginPhone" required placeholder="१० अंकी मोबाइल नंबर" maxlength="10" class="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-bhagwa-500 focus:outline-none bg-slate-50 font-mono">
             </div>
-            <span class="text-xs font-mono bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-semibold" id="autoReceiptNo">
-              Receipt: Auto
-            </span>
           </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">६-अंकी सिक्रेट पासकोड (Secret Code) *</label>
+            <div class="relative">
+              <i data-lucide="key-round" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+              <input type="password" id="volLoginCode" required placeholder="उदा. 748291 किंवा SHIV01" maxlength="12" class="w-full pl-10 pr-10 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-bhagwa-500 focus:outline-none bg-slate-50 tracking-wider font-mono uppercase">
+              <button type="button" onclick="toggleVolLoginPasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <i id="volLoginEyeIcon" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="volLoginError" class="hidden p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold flex items-center gap-1.5">
+            <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600"></i>
+            <span id="volLoginErrorText">मोबाईल नंबर किंवा सिक्रेट कोड चुकीचा आहे!</span>
+          </div>
+
+          <button type="submit" class="w-full py-3 bg-gradient-to-r from-bhagwa-600 to-amber-600 hover:from-bhagwa-700 hover:to-amber-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i> सुरक्षित प्रवेश करा (Login)
+          </button>
+
+          <div class="pt-3 border-t border-slate-100 text-center">
+            <p class="text-[11px] text-slate-400">
+              कोणताही अनोळखी व्यक्ती पावती फाडू शकत नाही. सिक्रेट कोडसाठी <span onclick="promptAdminPin()" class="text-bhagwa-700 font-bold underline cursor-pointer">उत्सव समिती ऍडमिनशी</span> संपर्क साधा.
+            </p>
+          </div>
+        </form>
+      </div>
+
+      <!-- ACTIVE DONATION FORM & PREVIEW (LOCKED TO AUTHENTICATED VOLUNTEER) -->
+      <div id="donationActiveContainer" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+          <!-- Form Column -->
+          <div class="lg:col-span-7 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+            
+            <!-- Active Volunteer Session Header Bar -->
+            <div id="activeVolSessionBar" class="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100 p-3 rounded-xl border border-emerald-300 flex items-center justify-between mb-4 shadow-2xs">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                  <i data-lucide="check" class="w-4 h-4 stroke-[3]"></i>
+                </div>
+                <div>
+                  <p class="text-xs font-bold text-emerald-950 flex items-center gap-1.5 flex-wrap">
+                    <span>सक्रिय अधिकृत कार्यकर्ता:</span>
+                    <span class="text-bhagwa-800 font-extrabold text-sm" id="activeVolSessionName">शिरसाठ सचिन</span>
+                    <span class="bg-emerald-200 text-emerald-900 text-[10px] px-2 py-0.5 rounded-full font-semibold" id="activeVolSessionArea">मुख्य कमिटी</span>
+                  </p>
+                  <p class="text-[10px] text-slate-500">पावती केवळ तुमच्या अधिकृत खात्यावर नोंदवली जाईल.</p>
+                </div>
+              </div>
+              <button type="button" onclick="logoutVolunteer()" class="text-xs bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-2xs transition">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i> लॉगआउट
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <div>
+                <h2 class="text-base sm:text-xl font-black font-royal text-slate-900 flex items-center gap-2">
+                  <i data-lucide="file-text" class="w-5 h-5 text-bhagwa-600"></i>
+                  नवीन वर्गणी पावती (Door-to-Door Collection)
+                </h2>
+                <p class="text-xs text-slate-500">पावती भरताच डोनरला डिजिटल पावती तयार होईल</p>
+              </div>
+              <span class="text-xs font-mono bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-semibold" id="autoReceiptNo">
+                Receipt: Auto
+              </span>
+            </div>
 
           <form id="donationForm" onsubmit="handleDonationSubmit(event)" class="space-y-4">
             
@@ -538,6 +612,7 @@
           </div>
         </div>
 
+      </div>
       </div>
     </div>
 
@@ -1640,7 +1715,7 @@
             <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-1.5">
               <i data-lucide="user-plus" class="w-4 h-4 text-bhagwa-600"></i> नवीन अधिकृत कार्यकर्ता जोडा (Add Volunteer)
             </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
               <div>
                 <label class="block font-semibold text-slate-600 mb-0.5">कार्यकर्त्याचे पूर्ण नाव *</label>
                 <input type="text" id="newVolName" placeholder="उदा. आकाश शिंदे" class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white">
@@ -1652,6 +1727,13 @@
               <div>
                 <label class="block font-semibold text-slate-600 mb-0.5">नेमून दिलेला परिसर (Area)</label>
                 <input type="text" id="newVolArea" placeholder="उदा. Wing C & D" class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white">
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-0.5">
+                  <label class="block font-semibold text-slate-600 text-[11px]">सिक्रेट कोड *</label>
+                  <button type="button" onclick="generateRandomVolCode()" class="text-[10px] text-bhagwa-700 font-bold hover:underline">🎲 कोड तयार करा</button>
+                </div>
+                <input type="text" id="newVolCode" placeholder="उदा. 748291" maxlength="12" class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono font-bold tracking-wider uppercase">
               </div>
               <div>
                 <label class="block font-semibold text-slate-600 mb-0.5">प्रोफाइल फोटो (Photo)</label>
@@ -1671,7 +1753,13 @@
 
           <!-- Volunteers Registered List -->
           <div>
-            <h4 class="font-bold text-slate-700 mb-2">नोंदणीकृत कार्यकर्ते (Active Volunteers)</h4>
+            <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <h4 class="font-bold text-slate-700">नोंदणीकृत कार्यकर्ते (Active Volunteers)</h4>
+              <button type="button" onclick="regenerateAllVolunteerCodes()" class="text-[11px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-2xs transition">
+                <i data-lucide="refresh-cw" class="w-3 h-3 text-amber-700"></i>
+                <span>प्रत्येकाला स्वतंत्र युनिक कोड द्या</span>
+              </button>
+            </div>
             <div class="border border-slate-200 rounded-xl overflow-hidden">
               <table class="w-full text-left text-xs">
                 <thead>
@@ -1679,6 +1767,7 @@
                     <th class="p-2.5">नाव</th>
                     <th class="p-2.5">मोबाइल</th>
                     <th class="p-2.5">परिसर</th>
+                    <th class="p-2.5">सिक्रेट कोड (Admin Only)</th>
                     <th class="p-2.5">एकूण जमा केलेली वर्गणी</th>
                     <th class="p-2.5 text-center">कृती</th>
                   </tr>

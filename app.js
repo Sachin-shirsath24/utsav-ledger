@@ -113,6 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateNextReceiptNumber();
   populateVolunteerDropdown();
   loadGallery();
+  checkVolunteerAuthUI();
 
   // 2. NOW check if page was opened via WhatsApp Digital Receipt Link (?receipt=SJ-2027-0001)
   // Data is loaded, so verification lookup will succeed immediately!
@@ -221,13 +222,41 @@ function loadVolunteers() {
     volunteers = [];
   }
 
+  // Load any cached volunteer secret codes
+  let secretCodesMap = {};
+  try {
+    secretCodesMap = JSON.parse(localStorage.getItem("utsav_vol_secret_codes") || "{}");
+  } catch (e) {
+    secretCodesMap = {};
+  }
+
   // If no volunteers remain or empty, default to the user's authentic volunteer: शिरसाठ सचिन (unless explicitly deleted)
   if (volunteers.length === 0 && !deletedVols.includes("vol-sachin")) {
     volunteers = [
-      { id: "vol-sachin", name: "शिरसाठ सचिन", phone: "9822000000", area: "मुख्य कमिटी" }
+      { id: "vol-sachin", name: "शिरसाठ सचिन", phone: "9822000000", area: "मुख्य कमिटी", secretCode: "190227" }
     ];
   }
 
+  // Ensure every active volunteer has an assigned, distinct and unique 6-digit secret code
+  const usedCodes = new Set();
+  volunteers.forEach((v) => {
+    let code = v.secretCode || secretCodesMap[v.id];
+    // Avoid duplicate or default collisions (each volunteer must have their own unique code)
+    if (!code || usedCodes.has(code.toUpperCase())) {
+      if (v.id === "vol-sachin" && !usedCodes.has("190227")) {
+        code = "190227";
+      } else {
+        do {
+          code = Math.floor(100000 + Math.random() * 900000).toString();
+        } while (usedCodes.has(code));
+      }
+    }
+    v.secretCode = code;
+    secretCodesMap[v.id] = code;
+    usedCodes.add(code.toUpperCase());
+  });
+
+  localStorage.setItem("utsav_vol_secret_codes", JSON.stringify(secretCodesMap));
   localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
   populateVolunteerDropdown();
   renderAdminVolunteersTable();
@@ -235,6 +264,12 @@ function loadVolunteers() {
 }
 
 function saveVolunteers(volToSync = null) {
+  // Update secret codes map
+  const secretCodesMap = {};
+  volunteers.forEach(v => {
+    if (v.id && v.secretCode) secretCodesMap[v.id] = v.secretCode;
+  });
+  localStorage.setItem("utsav_vol_secret_codes", JSON.stringify(secretCodesMap));
   localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
   populateVolunteerDropdown();
   renderAdminVolunteersTable();
@@ -247,6 +282,7 @@ function saveVolunteers(volToSync = null) {
     } else {
       volunteers.forEach(v => syncVolunteerToSupabase(v));
     }
+    syncVolunteerCodesToCloud();
   }
 }
 
@@ -333,8 +369,17 @@ function populateVolunteerDropdown() {
   const select = document.getElementById("volunteerSelect");
   if (!select) return;
 
-  const currentVal = select.value;
+  const activeVol = getActiveLoggedInVolunteer();
   select.innerHTML = "";
+
+  if (activeVol) {
+    const opt = document.createElement("option");
+    opt.value = activeVol.name;
+    opt.innerText = `${activeVol.name} (${activeVol.area || activeVol.phone})`;
+    select.appendChild(opt);
+    select.value = activeVol.name;
+    return;
+  }
 
   if (volunteers.length === 0) {
     select.innerHTML = `<option value="अधिकृत कार्यकर्ता">अधिकृत कार्यकर्ता</option>`;
@@ -347,8 +392,6 @@ function populateVolunteerDropdown() {
     opt.innerText = `${v.name} (${v.area || v.phone})`;
     select.appendChild(opt);
   });
-
-  if (currentVal) select.value = currentVal;
 }
 // -----------------------------------------------------------------------------
 // DELETED RECORDS REGISTRY (Tombstone tracker to prevent re-appearance on refresh)
@@ -511,6 +554,10 @@ function switchTab(tabName) {
   if (activeTabBtn) {
     activeTabBtn.classList.remove("border-transparent", "text-orange-200");
     activeTabBtn.classList.add("border-white", "text-white");
+  }
+
+  if (tabName === "donation") {
+    checkVolunteerAuthUI();
   }
 
   if (tabName === "expenses") {
@@ -863,6 +910,13 @@ function validateUtrLive(val) {
 async function handleDonationSubmit(e) {
   e.preventDefault();
 
+  const activeVol = getActiveLoggedInVolunteer();
+  if (!activeVol) {
+    alert("⚠️ केवळ अधिकृत लॉगिन केलेले कार्यकर्तेच पावती फाडू शकतात!\nकृपया आधी आपला नोंदणीकृत मोबाईल व ६-अंकी सिक्रेट कोड टाकून लॉगिन करा.");
+    checkVolunteerAuthUI();
+    return;
+  }
+
   const donorName = document.getElementById("donorName").value.trim();
   const phone = document.getElementById("donorPhone").value.trim();
   const society = document.getElementById("donorSociety").value.trim();
@@ -870,7 +924,7 @@ async function handleDonationSubmit(e) {
   const flat = document.getElementById("donorFlat").value.trim();
   const amount = parseFloat(document.getElementById("donationAmount").value);
   const mode = document.getElementById("paymentMode").value;
-  const volunteer = document.getElementById("volunteerSelect") ? document.getElementById("volunteerSelect").value : "कार्यकर्ता";
+  const volunteer = activeVol.name;
 
   // Strict Donation Amount Validation
   if (isNaN(amount) || amount <= 0) {
@@ -2549,7 +2603,7 @@ function renderAdminVolunteersTable() {
   if (countBadge) countBadge.innerText = volunteers.length;
 
   if (volunteers.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-slate-400">कोणताही कार्यकर्ता जोडलेला नाही. वरून नवीन जोडा.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-400">कोणताही कार्यकर्ता जोडलेला नाही. वरून नवीन जोडा.</td></tr>`;
     return;
   }
 
@@ -2563,15 +2617,36 @@ function renderAdminVolunteersTable() {
       ? `<img src="${v.photoUrl}" alt="${v.name}" class="w-7 h-7 rounded-full object-cover border border-orange-400">`
       : `<div class="w-7 h-7 rounded-full bg-orange-100 text-bhagwa-700 font-bold flex items-center justify-center text-[10px]">${v.name.charAt(0)}</div>`;
 
+    const cleanPhone = (v.phone || "").replace(/\D/g, "");
+    const waPhone = cleanPhone.startsWith("91") ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
+    const secCode = v.secretCode || "190227";
+    const waShareMsg = encodeURIComponent(`जय जिजाऊ जय शिवराय! 🚩\n${v.name} जी, छत्रपती शिवाजी महाराज जयंती उत्सव २०२७ पावती फाडण्यासाठी तुमचा अधिकृत ६-अंकी लॉगिन कोड आहे:\n\n🔐 सिक्रेट कोड: *${secCode}*\n\nहा कोड कोणालाही शेअर करू नका. धन्यवाद!`);
+
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
       <td class="p-2.5 font-bold text-slate-800 flex items-center gap-2">
         ${thumbHtml}
-        <span>${v.name}</span>
+        <span>${escapeHtml(v.name)}</span>
       </td>
-      <td class="p-2.5 font-mono text-slate-600">${v.phone}</td>
-      <td class="p-2.5 text-slate-600">${v.area || "-"}</td>
+      <td class="p-2.5 font-mono text-slate-600">${escapeHtml(v.phone)}</td>
+      <td class="p-2.5 text-slate-600">${escapeHtml(v.area || "-")}</td>
+      <td class="p-2.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span id="volCodeBadge-${v.id}" class="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300 tracking-wider">
+            ••••••
+          </span>
+          <button type="button" onclick="toggleVolTableCode('${v.id}', '${escapeHtml(secCode)}')" class="p-1 hover:bg-slate-200 rounded text-slate-500" title="कोड दाखवा/लपवा">
+            <i id="volCodeEye-${v.id}" data-lucide="eye" class="w-3.5 h-3.5"></i>
+          </button>
+          <button type="button" onclick="copyVolCode('${escapeHtml(secCode)}')" class="p-1 hover:bg-slate-200 rounded text-slate-500" title="कोड कॉपी करा">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          </button>
+          <a href="https://wa.me/${waPhone}?text=${waShareMsg}" target="_blank" class="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 text-[10px] font-bold flex items-center gap-1" title="WhatsApp वर कोड पाठवा">
+            <i data-lucide="send" class="w-3 h-3"></i> पाठवा
+          </a>
+        </div>
+      </td>
       <td class="p-2.5 font-bold text-emerald-700">₹${volunteerTotal.toLocaleString("en-IN")}</td>
       <td class="p-2.5 text-center">
         <button onclick="deleteVolunteer('${v.id}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded text-[11px]" title="कार्यकर्ता यादीतून हटवा">
@@ -2581,6 +2656,7 @@ function renderAdminVolunteersTable() {
     `;
     tbody.appendChild(tr);
   });
+  lucide.createIcons();
 }
 
 let tempVolunteerPhotoUrl = "";
@@ -2604,10 +2680,15 @@ function addNewVolunteer() {
   const name = document.getElementById("newVolName").value.trim();
   const phone = document.getElementById("newVolPhone").value.trim();
   const area = document.getElementById("newVolArea").value.trim();
+  let code = document.getElementById("newVolCode") ? document.getElementById("newVolCode").value.trim().toUpperCase() : "";
 
   if (!name || !phone) {
     alert("⚠️ कृपया कार्यकर्त्याचे नाव आणि फोन नंबर प्रविष्ट करा!");
     return;
+  }
+
+  if (!code) {
+    code = Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   const newVol = {
@@ -2615,6 +2696,7 @@ function addNewVolunteer() {
     name,
     phone,
     area,
+    secretCode: code,
     photoUrl: tempVolunteerPhotoUrl || ""
   };
 
@@ -2625,13 +2707,14 @@ function addNewVolunteer() {
   document.getElementById("newVolName").value = "";
   document.getElementById("newVolPhone").value = "";
   document.getElementById("newVolArea").value = "";
+  if (document.getElementById("newVolCode")) document.getElementById("newVolCode").value = "";
   const photoInput = document.getElementById("newVolPhoto");
   if (photoInput) photoInput.value = "";
   const previewBox = document.getElementById("newVolPhotoPreviewBox");
   if (previewBox) previewBox.classList.add("hidden");
   tempVolunteerPhotoUrl = "";
 
-  alert(`✓ नवीन कार्यकर्ता '${name}' फोटोसह यशस्वीरीत्या जोडला गेला!`);
+  alert(`✓ नवीन कार्यकर्ता '${name}' यशस्वीरीत्या जोडला गेला!\n🔐 अधिकृत ६-अंकी लॉगिन कोड: ${code}\n(हा कोड कार्यकर्त्याला द्या)`);
 }
 
 function deleteVolunteer(id) {
@@ -2659,6 +2742,176 @@ function deleteVolunteer(id) {
     }
     alert(`✓ कार्यकर्ता '${vol.name}' कमिटी यादीतून काढला.`);
   }
+}
+
+// =============================================================================
+// VOLUNTEER AUTHENTICATION & LOGIN GATE (Role-Based Access Control)
+// =============================================================================
+function getActiveLoggedInVolunteer() {
+  const volId = localStorage.getItem("utsav_active_volunteer_id");
+  if (!volId) return null;
+  return volunteers.find(v => v.id === volId) || null;
+}
+
+function checkVolunteerAuthUI() {
+  const activeVol = getActiveLoggedInVolunteer();
+  const loginContainer = document.getElementById("volunteerLoginContainer");
+  const activeContainer = document.getElementById("donationActiveContainer");
+  const nameEl = document.getElementById("activeVolSessionName");
+  const areaEl = document.getElementById("activeVolSessionArea");
+  const prevVolEl = document.getElementById("prevVolunteer");
+
+  if (activeVol) {
+    if (loginContainer) loginContainer.classList.add("hidden");
+    if (activeContainer) activeContainer.classList.remove("hidden");
+    if (nameEl) nameEl.innerText = activeVol.name;
+    if (areaEl) areaEl.innerText = activeVol.area || "मुख्य कमिटी";
+    if (prevVolEl) prevVolEl.innerText = activeVol.name;
+    populateVolunteerDropdown();
+  } else {
+    if (loginContainer) loginContainer.classList.remove("hidden");
+    if (activeContainer) activeContainer.classList.add("hidden");
+    const errBox = document.getElementById("volLoginError");
+    if (errBox) errBox.classList.add("hidden");
+  }
+  lucide.createIcons();
+}
+
+function handleVolunteerLogin(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const phoneInput = document.getElementById("volLoginPhone");
+  const codeInput = document.getElementById("volLoginCode");
+  const errBox = document.getElementById("volLoginError");
+  const errText = document.getElementById("volLoginErrorText");
+
+  const phone = phoneInput ? phoneInput.value.trim().replace(/\D/g, "") : "";
+  const code = codeInput ? codeInput.value.trim().toUpperCase() : "";
+
+  if (!phone || !code) {
+    if (errBox && errText) {
+      errText.innerText = "कृपया नोंदणीकृत मोबाईल नंबर आणि ६-अंकी सिक्रेट कोड दोन्ही प्रविष्ट करा!";
+      errBox.classList.remove("hidden");
+    }
+    return;
+  }
+
+  // Authenticate against registered volunteers
+  const matchedVol = volunteers.find(v => {
+    const vPhoneClean = (v.phone || "").replace(/\D/g, "");
+    const phoneMatch = vPhoneClean === phone || vPhoneClean.endsWith(phone) || phone.endsWith(vPhoneClean);
+    const vCode = (v.secretCode || "190227").toUpperCase();
+    const codeMatch = vCode === code;
+    return phoneMatch && codeMatch;
+  });
+
+  if (!matchedVol) {
+    if (errBox && errText) {
+      errText.innerText = "मोबाईल नंबर किंवा सिक्रेट कोड जुळत नाही! कृपया ऍडमिनशी संपर्क साधा.";
+      errBox.classList.remove("hidden");
+    }
+    return;
+  }
+
+  // Successful Login
+  if (errBox) errBox.classList.add("hidden");
+  localStorage.setItem("utsav_active_volunteer_id", matchedVol.id);
+  if (phoneInput) phoneInput.value = "";
+  if (codeInput) codeInput.value = "";
+
+  checkVolunteerAuthUI();
+  alert(`🚩 स्वागत आहे, ${matchedVol.name}!\nआपण अधिकृत पावती फाडण्यासाठी यशस्वीरीत्या लॉगिन झाला आहात.`);
+}
+
+function logoutVolunteer() {
+  const activeVol = getActiveLoggedInVolunteer();
+  const name = activeVol ? activeVol.name : "कार्यकर्ता";
+  if (confirm(`${name}, आपण खरोखर लॉगआउट करू इच्छिता का?`)) {
+    localStorage.removeItem("utsav_active_volunteer_id");
+    checkVolunteerAuthUI();
+  }
+}
+
+function generateRandomVolCode() {
+  const codeInput = document.getElementById("newVolCode");
+  if (codeInput) {
+    codeInput.value = Math.floor(100000 + Math.random() * 900000).toString();
+  }
+}
+
+function toggleVolLoginPasswordVisibility() {
+  const input = document.getElementById("volLoginCode");
+  if (!input) return;
+  if (input.type === "password") {
+    input.type = "text";
+  } else {
+    input.type = "password";
+  }
+}
+
+function toggleVolTableCode(id, code) {
+  const badge = document.getElementById(`volCodeBadge-${id}`);
+  if (!badge) return;
+  if (badge.innerText.includes("••")) {
+    badge.innerText = code;
+  } else {
+    badge.innerText = "••••••";
+  }
+}
+
+function copyVolCode(code) {
+  if (navigator && navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(() => {
+      alert(`🔐 सिक्रेट कोड '${code}' क्लिपबोर्डवर कॉपी झाला!`);
+    }).catch(() => {
+      prompt("हा कोड कॉपी करा:", code);
+    });
+  } else {
+    prompt("हा कोड कॉपी करा:", code);
+  }
+}
+
+async function syncVolunteerCodesToCloud() {
+  if (!supabaseClient) return;
+  try {
+    const map = {};
+    volunteers.forEach(v => {
+      if (v.id && v.secretCode) map[v.id] = v.secretCode;
+    });
+    await supabaseClient.from("settings_simple").upsert({
+      key: "volunteer_secret_codes",
+      value: JSON.stringify(map),
+      updated_at: new Date().toISOString()
+    }, { onConflict: "key" });
+  } catch (e) {
+    console.warn("Cloud volunteer codes sync note:", e);
+  }
+}
+
+function regenerateAllVolunteerCodes() {
+  if (!confirm("⚠️ आपण सर्व कार्यकर्त्यांसाठी नवीन व स्वतंत्र (Unique) सिक्रेट कोड तयार करू इच्छिता का?\n\nप्रत्येक कार्यकर्त्याला त्यांचा नवीन ६-अंकी कोड स्वतंत्रपणे दिला जाईल.")) {
+    return;
+  }
+  const usedCodes = new Set();
+  const secretCodesMap = {};
+  volunteers.forEach((v) => {
+    let code = "";
+    if (v.id === "vol-sachin") {
+      code = "190227";
+    } else {
+      do {
+        code = Math.floor(100000 + Math.random() * 900000).toString();
+      } while (usedCodes.has(code) || code === "190227");
+    }
+    usedCodes.add(code);
+    v.secretCode = code;
+    secretCodesMap[v.id] = code;
+  });
+
+  localStorage.setItem("utsav_vol_secret_codes", JSON.stringify(secretCodesMap));
+  saveVolunteers();
+  syncVolunteerCodesToCloud();
+  renderAdminVolunteersTable();
+  alert("✓ सर्व कार्यकर्त्यांना स्वतंत्र व युनिक ६-अंकी सिक्रेट कोड यशस्वीरीत्या वाटप करण्यात आले आहेत!\nनवीन कोड खालील यादीतून पाहू शकता किंवा व्हॉट्सॲपवर पाठवू शकता.");
 }
 
 function saveAdminSettings() {
@@ -3281,6 +3534,14 @@ async function loadFromSupabase() {
         .order("created_at", { ascending: true });
 
       if (!volErr && volData && volData.length > 0) {
+        let secretCodesMap = {};
+        try {
+          secretCodesMap = JSON.parse(localStorage.getItem("utsav_vol_secret_codes") || "{}");
+        } catch (e) {
+          secretCodesMap = {};
+        }
+
+        const usedCodes = new Set();
         const cloudVols = volData
           .filter(v =>
             v.id !== "vol-1" &&
@@ -3291,16 +3552,34 @@ async function loadFromSupabase() {
             !v.full_name.includes("स्वप्नील गायकवाड") &&
             !deletedVols.includes(v.id)
           )
-          .map(v => ({
-            id: v.id,
-            name: v.full_name,
-            phone: v.phone || "",
-            area: v.area || "",
-            photoUrl: v.photo_url || ""
-          }));
+          .map(v => {
+            const existingLocal = volunteers.find(lv => lv.id === v.id);
+            let code = (existingLocal && existingLocal.secretCode) || secretCodesMap[v.id] || v.secret_code;
+            if (!code || usedCodes.has(code.toUpperCase())) {
+              if (v.id === "vol-sachin" && !usedCodes.has("190227")) {
+                code = "190227";
+              } else {
+                do {
+                  code = Math.floor(100000 + Math.random() * 900000).toString();
+                } while (usedCodes.has(code));
+              }
+            }
+            secretCodesMap[v.id] = code;
+            usedCodes.add(code.toUpperCase());
+
+            return {
+              id: v.id,
+              name: v.full_name,
+              phone: v.phone || "",
+              area: v.area || "",
+              photoUrl: v.photo_url || "",
+              secretCode: code
+            };
+          });
 
         if (cloudVols.length > 0) {
           volunteers = cloudVols;
+          localStorage.setItem("utsav_vol_secret_codes", JSON.stringify(secretCodesMap));
           localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
           populateVolunteerDropdown();
           renderAdminVolunteersTable();
@@ -3338,6 +3617,22 @@ async function loadFromSupabase() {
             localStorage.setItem("utsav_target_budget", s.value);
           } else if (s.key === "live_url" && s.value) {
             localStorage.setItem("utsav_live_url", s.value);
+          } else if (s.key === "volunteer_secret_codes" && s.value) {
+            try {
+              const cloudCodes = JSON.parse(s.value);
+              let changed = false;
+              volunteers.forEach(v => {
+                if (cloudCodes[v.id] && v.secretCode !== cloudCodes[v.id]) {
+                  v.secretCode = cloudCodes[v.id];
+                  changed = true;
+                }
+              });
+              if (changed) {
+                localStorage.setItem("utsav_vol_secret_codes", JSON.stringify(cloudCodes));
+                localStorage.setItem("utsav_volunteers", JSON.stringify(volunteers));
+                renderAdminVolunteersTable();
+              }
+            } catch (ce) {}
           }
         });
 
